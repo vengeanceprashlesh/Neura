@@ -6,7 +6,7 @@ import {
     SandpackCodeEditor,
     SandpackPreview,
 } from '@codesandbox/sandpack-react';
-import { useAppStore } from '@/lib/store';
+import { useAppStore } from '@/lib/store/use-app-store';
 import { SANDPACK_DEPENDENCIES } from '@/lib/sandpack-files';
 import { ErrorPanel } from './ErrorPanel';
 

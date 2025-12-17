@@ -1,13 +1,10 @@
 'use client';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SandpackEditor } from '@/components/sandpack';
-import { useAppStore } from '@/lib/store';
-import { Code2, Eye, FolderTree } from 'lucide-react';
+import { Code2, FolderTree } from 'lucide-react';
 
-export function RightPanel() {
-    const { fileStructure } = useAppStore();
-
+export function SandboxPanel() {
     return (
         <div className="h-full flex flex-col bg-zinc-900">
             {/* Header */}
