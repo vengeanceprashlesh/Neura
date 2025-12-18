@@ -7,18 +7,29 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAppStore } from '@/lib/store/use-app-store';
+import { generateApp } from '@/lib/api';
 import {
     Send,
     Sparkles,
     Loader2,
     Bot,
-    User
+    User,
+    Wand2,
+    AlertCircle
 } from 'lucide-react';
 
 export function ChatPanel() {
     const scrollRef = useRef<HTMLDivElement>(null);
     const [inputValue, setInputValue] = useState('');
-    const { setLastAssistantMessage } = useAppStore();
+    const {
+        setLastAssistantMessage,
+        loadGeneratedFiles,
+        isGenerating,
+        setIsGenerating,
+        generationError,
+        setGenerationError,
+        setCurrentProjectId
+    } = useAppStore();
 
     const { messages, sendMessage, status } = useChat({
         transport: new DefaultChatTransport({
@@ -62,6 +73,41 @@ export function ChatPanel() {
             .join('');
     };
 
+    // Get the user's app description from messages
+    const getAppDescription = () => {
+        const userMessages = messages.filter(m => m.role === 'user');
+        return userMessages.map(m => getMessageText(m)).join('\n\n');
+    };
+
+    // Handle app generation
+    const handleGenerateApp = async () => {
+        const description = getAppDescription();
+        if (!description.trim()) {
+            setGenerationError('Please describe your app idea first');
+            return;
+        }
+
+        setIsGenerating(true);
+        setGenerationError(null);
+
+        try {
+            const result = await generateApp(description);
+            setCurrentProjectId(result.projectId);
+            loadGeneratedFiles(result.files);
+
+            // Add a confirmation message
+            sendMessage({ text: '✅ App generated! Check the editor on the right.' });
+        } catch (error) {
+            console.error('Generation error:', error);
+            setGenerationError(error instanceof Error ? error.message : 'Failed to generate app');
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    // Show generate button if there are user messages
+    const showGenerateButton = messages.some(m => m.role === 'user');
+
     return (
         <div className="h-full flex flex-col bg-zinc-950">
             {/* Header */}
@@ -88,7 +134,7 @@ export function ChatPanel() {
                             Welcome to Neura
                         </h2>
                         <p className="text-sm text-zinc-500 max-w-[240px]">
-                            Start a conversation to build your next app with AI assistance.
+                            Describe your app idea and I'll help you build it. When you're ready, click "Generate App" to create your code.
                         </p>
                     </div>
                 ) : (
@@ -138,6 +184,35 @@ export function ChatPanel() {
                 )}
             </ScrollArea>
 
+            {/* Generate Button */}
+            {showGenerateButton && (
+                <div className="px-4 pb-2">
+                    {generationError && (
+                        <div className="flex items-center gap-2 text-red-400 text-sm mb-2 p-2 bg-red-950/50 rounded-lg border border-red-900">
+                            <AlertCircle size={14} />
+                            <span>{generationError}</span>
+                        </div>
+                    )}
+                    <Button
+                        onClick={handleGenerateApp}
+                        disabled={isGenerating || isLoading}
+                        className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-medium"
+                    >
+                        {isGenerating ? (
+                            <>
+                                <Loader2 size={16} className="animate-spin mr-2" />
+                                Generating App...
+                            </>
+                        ) : (
+                            <>
+                                <Wand2 size={16} className="mr-2" />
+                                Generate App
+                            </>
+                        )}
+                    </Button>
+                </div>
+            )}
+
             {/* Input Area */}
             <div className="p-4 border-t border-zinc-800">
                 <form onSubmit={handleSubmit} className="flex gap-2">
@@ -146,14 +221,14 @@ export function ChatPanel() {
                         onChange={(e) => setInputValue(e.target.value)}
                         onKeyDown={handleKeyDown}
                         placeholder="Describe what you want to build..."
-                        disabled={isLoading}
+                        disabled={isLoading || isGenerating}
                         className="min-h-[60px] max-h-[120px] resize-none bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500 focus-visible:ring-indigo-500"
                         rows={2}
                     />
                     <Button
                         type="submit"
                         size="icon"
-                        disabled={isLoading || !inputValue.trim()}
+                        disabled={isLoading || isGenerating || !inputValue.trim()}
                         className="h-[60px] w-[60px] bg-indigo-600 hover:bg-indigo-700 shrink-0"
                     >
                         {status === 'streaming' ? (

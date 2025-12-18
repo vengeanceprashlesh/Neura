@@ -5,6 +5,7 @@ import {
     SandpackLayout,
     SandpackCodeEditor,
     SandpackPreview,
+    SandpackFileExplorer,
 } from '@codesandbox/sandpack-react';
 import { useAppStore } from '@/lib/store/use-app-store';
 import { SANDPACK_DEPENDENCIES } from '@/lib/sandpack-files';
@@ -26,7 +27,7 @@ export function SandpackEditor() {
     return (
         <div className="h-full flex flex-col">
             <SandpackProvider
-                template="react-ts"
+                template="nextjs"
                 files={files}
                 customSetup={{
                     dependencies: SANDPACK_DEPENDENCIES,
@@ -39,6 +40,10 @@ export function SandpackEditor() {
                 }}
             >
                 <SandpackLayout className="flex-1 !rounded-none !border-0">
+                    <SandpackFileExplorer
+                        className="min-w-[180px]"
+                        autoHiddenFiles
+                    />
                     <SandpackCodeEditor
                         showTabs
                         showLineNumbers

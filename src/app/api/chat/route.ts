@@ -1,53 +1,159 @@
-import { streamText, UIMessage, convertToModelMessages } from 'ai';
+import { NextRequest } from 'next/server';
+import OpenAI from 'openai';
 
-// Allow streaming responses up to 30 seconds
-export const maxDuration = 30;
+// Allow streaming responses up to 60 seconds
+export const maxDuration = 60;
 
-// Simple echo model for testing - creates a mock response
-async function createEchoResponse(userMessage: string) {
-    const response = `I received your message: "${userMessage}"
+// Provider configuration - matches lib/ai/provider.ts
+function getProviderConfig() {
+    // Check for Groq first (priority for fast inference)
+    const groqKey = process.env.GROQ_API_KEY;
+    if (groqKey) {
+        return {
+            provider: 'groq' as const,
+            apiKey: groqKey,
+            baseURL: 'https://api.groq.com/openai/v1',
+            model: process.env.LLM_MODEL || 'llama-3.3-70b-versatile',
+            headers: undefined,
+        };
+    }
 
-This is a streaming response from the AI SDK v5. The chat is working correctly! 🎉
+    // Check for OpenRouter
+    const openrouterKey = process.env.OPENROUTER_API_KEY;
+    if (openrouterKey) {
+        return {
+            provider: 'openrouter' as const,
+            apiKey: openrouterKey,
+            baseURL: 'https://openrouter.ai/api/v1',
+            model: process.env.LLM_MODEL || 'anthropic/claude-3.5-sonnet',
+            headers: {
+                'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+                'X-Title': 'Neura AI App Builder',
+            },
+        };
+    }
 
-In the next milestone, this will be connected to a real LLM for code generation.`;
+    // Fall back to OpenAI
+    const openaiKey = process.env.OPENAI_API_KEY;
+    if (openaiKey) {
+        return {
+            provider: 'openai' as const,
+            apiKey: openaiKey,
+            baseURL: undefined,
+            model: process.env.LLM_MODEL || 'gpt-4o',
+            headers: undefined,
+        };
+    }
 
-    return response;
+    return null;
 }
 
-export async function POST(req: Request) {
+// System prompt for the AI assistant
+const SYSTEM_PROMPT = `You are Neura, an AI assistant that helps users build web applications.
+
+Your capabilities:
+- Help users design and plan their application ideas
+- Answer questions about web development, React, Next.js, and related technologies
+- Provide guidance on best practices and architecture decisions
+- When users are ready to generate code, encourage them to click the "Generate App" button
+
+Be helpful, concise, and friendly. When discussing app ideas, ask clarifying questions to understand:
+- What type of app they want to build
+- Key features and functionality
+- Any specific requirements or preferences
+
+Keep responses focused and practical.`;
+
+export async function POST(req: NextRequest) {
     try {
-        const { messages }: { messages: UIMessage[] } = await req.json();
+        const config = getProviderConfig();
 
-        // Get the last user message
-        const lastUserMessage = messages
-            .filter((m) => m.role === 'user')
-            .pop();
+        if (!config) {
+            // Return a helpful message if no API key is configured
+            const encoder = new TextEncoder();
+            const noKeyMessage = "I'm not fully configured yet. Please set up your API key in the .env file to enable AI responses.\n\nSupported providers (priority order):\n1. GROQ_API_KEY (fastest)\n2. OPENROUTER_API_KEY (most models)\n3. OPENAI_API_KEY (direct OpenAI)";
 
-        // Extract text from user message parts
-        const userText = lastUserMessage?.parts
-            .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
-            .map(part => part.text)
-            .join('') || 'Hello';
+            const stream = new ReadableStream({
+                async start(controller) {
+                    const data = JSON.stringify({ type: 'text', text: noKeyMessage });
+                    controller.enqueue(encoder.encode(`0:${data}\n`));
+                    controller.enqueue(encoder.encode(`d:{"finishReason":"stop"}\n`));
+                    controller.close();
+                },
+            });
 
-        // Create echo response
-        const responseText = await createEchoResponse(userText);
+            return new Response(stream, {
+                headers: {
+                    'Content-Type': 'text/plain; charset=utf-8',
+                    'X-Vercel-AI-Data-Stream': 'v1',
+                },
+            });
+        }
 
-        // Create a streaming response manually for the echo demo
+        console.log(`Chat API using provider: ${config.provider}, model: ${config.model}`);
+
+        const { messages } = await req.json();
+
+        // Create OpenAI client (works with Groq, OpenRouter, and OpenAI)
+        const client = new OpenAI({
+            apiKey: config.apiKey,
+            baseURL: config.baseURL,
+            defaultHeaders: config.headers,
+        });
+
+        // Convert UI messages to OpenAI format
+        const openaiMessages: OpenAI.ChatCompletionMessageParam[] = [
+            { role: 'system', content: SYSTEM_PROMPT },
+        ];
+
+        for (const message of messages) {
+            const textContent = message.parts
+                ?.filter((part: { type: string }) => part.type === 'text')
+                .map((part: { text: string }) => part.text)
+                .join('') || message.content || '';
+
+            if (message.role === 'user' || message.role === 'assistant') {
+                openaiMessages.push({
+                    role: message.role,
+                    content: textContent,
+                });
+            }
+        }
+
+        // Create streaming completion
+        const completion = await client.chat.completions.create({
+            model: config.model,
+            messages: openaiMessages,
+            stream: true,
+            temperature: 0.7,
+            max_tokens: 2000,
+        });
+
+        // Convert OpenAI stream to AI SDK v5 format
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
             async start(controller) {
-                // Stream character by character for demo effect
-                for (let i = 0; i < responseText.length; i += 5) {
-                    const chunk = responseText.slice(i, i + 5);
-                    // Format: text part in UI message stream format
-                    const data = JSON.stringify({ type: 'text', text: chunk });
-                    controller.enqueue(encoder.encode(`0:${data}\n`));
-                    // Small delay for streaming effect
-                    await new Promise(resolve => setTimeout(resolve, 20));
+                try {
+                    for await (const chunk of completion) {
+                        const content = chunk.choices[0]?.delta?.content;
+                        if (content) {
+                            const data = JSON.stringify({ type: 'text', text: content });
+                            controller.enqueue(encoder.encode(`0:${data}\n`));
+                        }
+
+                        // Check for finish
+                        if (chunk.choices[0]?.finish_reason) {
+                            controller.enqueue(encoder.encode(`d:{"finishReason":"${chunk.choices[0].finish_reason}"}\n`));
+                        }
+                    }
+                    controller.close();
+                } catch (error) {
+                    console.error('Stream error:', error);
+                    const errorData = JSON.stringify({ type: 'text', text: '\n\n[Error: Stream interrupted]' });
+                    controller.enqueue(encoder.encode(`0:${errorData}\n`));
+                    controller.enqueue(encoder.encode(`d:{"finishReason":"error"}\n`));
+                    controller.close();
                 }
-                // Send finish message
-                controller.enqueue(encoder.encode(`d:{"finishReason":"stop"}\n`));
-                controller.close();
             },
         });
 
