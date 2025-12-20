@@ -1,36 +1,82 @@
 import { SandpackFiles } from './types';
 
-// Default Next.js App Router page
-export const DEFAULT_PAGE_CODE = `'use client';
-
-import { useState } from 'react';
+// Default page code - works in both React SPA (Sandpack) and Next.js
+export const DEFAULT_PAGE_CODE = `import { useState } from 'react';
 import { Heart, Sparkles, Zap, Code2 } from 'lucide-react';
 
-export default function Home() {
+export default function App() {
   const [count, setCount] = useState(0);
   const [liked, setLiked] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 flex flex-col items-center justify-center p-8">
-      <div className="bg-zinc-800/50 backdrop-blur-xl rounded-3xl p-8 border border-zinc-700/50 shadow-2xl max-w-md w-full">
-        <div className="flex justify-center mb-6">
-          <div className="p-4 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl">
-            <Code2 size={32} className="text-white" />
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #18181b 0%, #27272a 50%, #18181b 100%)',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '2rem',
+      fontFamily: 'system-ui, sans-serif',
+    }}>
+      <div style={{
+        background: 'rgba(39, 39, 42, 0.5)',
+        backdropFilter: 'blur(20px)',
+        borderRadius: '1.5rem',
+        padding: '2rem',
+        border: '1px solid rgba(63, 63, 70, 0.5)',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+        maxWidth: '400px',
+        width: '100%',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+          <div style={{
+            padding: '1rem',
+            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+            borderRadius: '1rem',
+          }}>
+            <Code2 size={32} color="white" />
           </div>
         </div>
         
-        <h1 className="text-2xl font-bold text-center text-white mb-2 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+        <h1 style={{
+          fontSize: '1.5rem',
+          fontWeight: 'bold',
+          textAlign: 'center',
+          marginBottom: '0.5rem',
+          background: 'linear-gradient(90deg, #818cf8, #a78bfa)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+        }}>
           Neura App Builder
         </h1>
         
-        <p className="text-zinc-400 text-center mb-8">
+        <p style={{
+          color: '#a1a1aa',
+          textAlign: 'center',
+          marginBottom: '2rem',
+        }}>
           Describe your app idea and watch it come to life
         </p>
 
-        <div className="flex gap-4 justify-center mb-6">
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginBottom: '1.5rem' }}>
           <button
             onClick={() => setCount(count + 1)}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium rounded-xl transition-all duration-200 transform hover:scale-105"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.75rem 1.5rem',
+              background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+              border: 'none',
+              borderRadius: '0.75rem',
+              color: 'white',
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'transform 0.2s',
+            }}
+            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
           >
             <Zap size={18} />
             Count: {count}
@@ -38,17 +84,28 @@ export default function Home() {
 
           <button
             onClick={() => setLiked(!liked)}
-            className={\`p-3 rounded-xl transition-all duration-200 transform hover:scale-110 \${
-              liked 
-                ? 'bg-gradient-to-r from-pink-500 to-rose-500' 
-                : 'bg-zinc-700 hover:bg-zinc-600'
-            }\`}
+            style={{
+              padding: '0.75rem',
+              background: liked ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'rgba(63, 63, 70, 0.5)',
+              border: 'none',
+              borderRadius: '0.75rem',
+              color: 'white',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
           >
-            <Heart size={20} className="text-white" fill={liked ? 'white' : 'none'} />
+            <Heart size={20} fill={liked ? 'white' : 'none'} />
           </button>
         </div>
 
-        <div className="flex items-center justify-center gap-2 text-zinc-500 text-sm">
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '0.5rem',
+          color: '#71717a',
+          fontSize: '0.875rem',
+        }}>
           <Sparkles size={14} />
           <span>Powered by AI</span>
         </div>
@@ -58,55 +115,27 @@ export default function Home() {
 }
 `;
 
-// Default Next.js App Router layout
-export const DEFAULT_LAYOUT_CODE = `import type { Metadata } from 'next';
-import './globals.css';
+// Default CSS
+export const DEFAULT_STYLES = `body {
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+}
 
-export const metadata: Metadata = {
-  title: 'Neura App',
-  description: 'Built with Neura AI App Builder',
-};
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <html lang="en">
-      <body className="antialiased">{children}</body>
-    </html>
-  );
+* {
+  box-sizing: border-box;
 }
 `;
 
-// Default globals.css with Tailwind
-export const DEFAULT_GLOBALS_CSS = `@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-:root {
-  --foreground-rgb: 255, 255, 255;
-  --background-rgb: 24, 24, 27;
-}
-
-body {
-  color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-rgb));
-}
-`;
-
-// Default files for Sandpack (Next.js App Router structure)
+// Default files for Sandpack (React SPA structure for preview)
+// When generating apps, we output Next.js App Router structure
 export const DEFAULT_FILES: SandpackFiles = {
-  '/app/page.tsx': {
+  '/App.tsx': {
     code: DEFAULT_PAGE_CODE,
     active: true,
   },
-  '/app/layout.tsx': {
-    code: DEFAULT_LAYOUT_CODE,
-  },
-  '/app/globals.css': {
-    code: DEFAULT_GLOBALS_CSS,
+  '/styles.css': {
+    code: DEFAULT_STYLES,
   },
 };
 
@@ -118,12 +147,9 @@ export const SANDPACK_DEPENDENCIES = {
   '@types/three': 'latest',
   '@supabase/supabase-js': 'latest',
 };
-`;
 
-// Optional Scene.tsx for Three.js demos (available as additional file)
-export const THREE_SCENE_CODE = `'use client';
-
-import { useEffect, useRef } from 'react';
+// Three.js Scene component (available as additional file)
+export const THREE_SCENE_CODE = `import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
 export default function Scene() {
@@ -132,17 +158,15 @@ export default function Scene() {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Scene setup
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-
+    
     renderer.setSize(300, 300);
     containerRef.current.appendChild(renderer.domElement);
 
-    // Create a cube
     const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const material = new THREE.MeshStandardMaterial({
+    const material = new THREE.MeshStandardMaterial({ 
       color: 0x6366f1,
       metalness: 0.3,
       roughness: 0.4,
@@ -150,17 +174,15 @@ export default function Scene() {
     const cube = new THREE.Mesh(geometry, material);
     scene.add(cube);
 
-    // Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
-
+    
     const pointLight = new THREE.PointLight(0xffffff, 1);
     pointLight.position.set(5, 5, 5);
     scene.add(pointLight);
 
     camera.position.z = 3;
 
-    // Animation
     const animate = () => {
       requestAnimationFrame(animate);
       cube.rotation.x += 0.01;
@@ -177,11 +199,6 @@ export default function Scene() {
     };
   }, []);
 
-  return (
-    <div 
-      ref= { containerRef }
-  className = "flex justify-center items-center p-8"
-    />
-  );
+  return <div ref={containerRef} style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }} />;
 }
 `;

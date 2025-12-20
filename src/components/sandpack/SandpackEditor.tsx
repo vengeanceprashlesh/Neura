@@ -15,11 +15,30 @@ export function SandpackEditor() {
     const { currentCode } = useAppStore();
 
     // Convert SandpackFiles to the format Sandpack expects
+    // Also transform Next.js paths to React SPA paths for preview
     const files = Object.entries(currentCode).reduce((acc, [path, file]) => {
+        let transformedPath = path;
+
+        // Transform Next.js App Router paths to React SPA paths for Sandpack
+        if (path === '/app/page.tsx') {
+            transformedPath = '/App.tsx';
+        } else if (path === '/app/layout.tsx') {
+            // Skip layout for React SPA
+            return acc;
+        } else if (path === '/app/globals.css') {
+            transformedPath = '/styles.css';
+        } else if (path.startsWith('/app/')) {
+            // Transform other app directory files
+            transformedPath = path.replace('/app/', '/');
+        }
+
         if (typeof file === 'string') {
-            acc[path] = { code: file };
+            acc[transformedPath] = { code: file };
         } else {
-            acc[path] = file;
+            acc[transformedPath] = {
+                ...file,
+                active: transformedPath === '/App.tsx' ? true : file.active
+            };
         }
         return acc;
     }, {} as Record<string, { code: string; active?: boolean; hidden?: boolean; readOnly?: boolean }>);
@@ -27,7 +46,7 @@ export function SandpackEditor() {
     return (
         <div className="h-full flex flex-col">
             <SandpackProvider
-                template="nextjs"
+                template="react-ts"
                 files={files}
                 customSetup={{
                     dependencies: SANDPACK_DEPENDENCIES,

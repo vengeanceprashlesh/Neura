@@ -31,6 +31,7 @@ interface AppState {
     setGenerationError: (error: string | null) => void;
     setCurrentProjectId: (id: string | null) => void;
     loadGeneratedFiles: (files: Record<string, string>) => void;
+    resetToDefault: () => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -39,7 +40,7 @@ export const useAppStore = create<AppState>((set) => ({
     chatHistory: [],
     fileStructure: [
         { path: '/App.tsx', type: 'file' },
-        { path: '/Scene.tsx', type: 'file' },
+        { path: '/styles.css', type: 'file' },
     ],
     lastAssistantMessage: null,
     isGenerating: false,
@@ -89,21 +90,55 @@ export const useAppStore = create<AppState>((set) => ({
         set({ currentProjectId: id }),
 
     // Load generated files into Sandpack format
+    // The AI generates Next.js App Router files, we transform them for React SPA preview
     loadGeneratedFiles: (files) =>
-        set((state) => {
-            // Convert API response format to SandpackFiles format
+        set(() => {
             const sandpackFiles: SandpackFiles = {};
 
             for (const [path, content] of Object.entries(files)) {
-                // Ensure path starts with /
-                const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+                let normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+                // Transform Next.js paths to React SPA paths for Sandpack preview
+                if (normalizedPath === '/app/page.tsx' || normalizedPath === '/page.tsx') {
+                    normalizedPath = '/App.tsx';
+                } else if (normalizedPath === '/app/layout.tsx' || normalizedPath === '/layout.tsx') {
+                    // Include layout as a separate file
+                    normalizedPath = '/Layout.tsx';
+                } else if (normalizedPath === '/app/globals.css' || normalizedPath === '/globals.css') {
+                    normalizedPath = '/styles.css';
+                } else if (normalizedPath.startsWith('/app/')) {
+                    // Transform other app directory files
+                    normalizedPath = normalizedPath.replace('/app/', '/');
+                }
+
                 sandpackFiles[normalizedPath] = {
                     code: content,
-                    active: normalizedPath === '/App.tsx' || normalizedPath === '/app/page.tsx',
+                    active: normalizedPath === '/App.tsx',
                 };
             }
 
-            // Update file structure based on generated files
+            // Ensure we have at least App.tsx
+            if (!sandpackFiles['/App.tsx']) {
+                // Find any page file and use it as App.tsx
+                const pageFile = Object.entries(files).find(([path]) =>
+                    path.includes('page.tsx') || path.includes('Page.tsx')
+                );
+                if (pageFile) {
+                    sandpackFiles['/App.tsx'] = {
+                        code: pageFile[1],
+                        active: true,
+                    };
+                }
+            }
+
+            // Add default styles if missing
+            if (!sandpackFiles['/styles.css']) {
+                sandpackFiles['/styles.css'] = {
+                    code: `body { margin: 0; font-family: system-ui, sans-serif; }`,
+                };
+            }
+
+            // Update file structure
             const fileStructure: FileNode[] = Object.keys(sandpackFiles).map((path) => ({
                 path,
                 type: 'file' as const,
@@ -114,5 +149,17 @@ export const useAppStore = create<AppState>((set) => ({
                 fileStructure,
                 generationError: null,
             };
+        }),
+
+    // Reset to default files
+    resetToDefault: () =>
+        set({
+            currentCode: DEFAULT_FILES,
+            fileStructure: [
+                { path: '/App.tsx', type: 'file' },
+                { path: '/styles.css', type: 'file' },
+            ],
+            currentProjectId: null,
+            generationError: null,
         }),
 }));
