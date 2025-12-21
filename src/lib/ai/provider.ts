@@ -181,33 +181,49 @@ export async function generateCode(
 ): Promise<GeneratedProject> {
     const { client, config } = getLLMClient();
 
-    const systemPrompt = `You are an expert full-stack developer using Next.js 15 App Router.
+    const systemPrompt = `You are an expert React developer creating code for a live preview sandbox.
 
-Given:
-1. An AppSpec JSON defining the app structure
-2. Frontend template snippets
-3. Backend template snippets
+Given an AppSpec JSON defining the app structure, generate React component files.
 
-Generate a complete Next.js project with all necessary files.
+CRITICAL RULES FOR SANDPACK COMPATIBILITY:
+1. Generate React SPA code (NOT Next.js App Router)
+2. Main component MUST be: export default function App()
+3. Keep it SIMPLE - prefer ONE file for simple apps
+4. If using multiple components:
+   - app/page.tsx: MUST have "export default function App()"
+   - app/components.tsx: Use NAMED exports: "export function ComponentName()"
+   - Import as: import { ComponentName } from './components'
+   
+5. EXPORT EXAMPLES (COPY THESE EXACTLY):
 
-RULES:
-- Use Next.js 15 App Router conventions (app directory)
-- Use TypeScript
-- Use Supabase for data persistence
-- Compose code by modifying/combining the provided templates
-- Do not invent new packages beyond: next, react, @supabase/supabase-js, lucide-react, tailwindcss
-- Include proper error handling
-- Make files complete and runnable
+// app/page.tsx - ALWAYS use default export
+import { useState } from 'react';
+import { TodoItem } from './components'; // named import
+
+export default function App() {
+  return <div><TodoItem /></div>;
+}
+
+// app/components.tsx - ALWAYS use named exports
+export function TodoItem() {
+  return <div>Item</div>;
+}
+
+6. Available: lucide-react (icons only), React hooks
+7. Styling: inline styles with style={{}} prop
+8. NO external packages except lucide-react
+9. Keep apps SIMPLE - working > complex
 
 Output ONLY valid JSON:
 {
   "spec": <the input AppSpec>,
   "files": {
-    "app/page.tsx": "file content...",
-    "app/layout.tsx": "file content...",
-    // ... all files needed
+    "app/page.tsx": "// MUST have: export default function App()",
+    "app/components.tsx": "// Use: export function ComponentName()",
+    "app/globals.css": "/* optional CSS */"
   }
 }`;
+
 
     const userPrompt = `
 ## App Specification

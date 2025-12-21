@@ -115,16 +115,16 @@ export function validateGeneratedProject(project: GeneratedProject): ValidationR
         }
     }
 
-    // Check that essential files exist
-    const hasLayout = filePaths.some(p => p.includes('layout.tsx') || p.includes('layout.jsx'));
-    const hasPage = filePaths.some(p => p.includes('page.tsx') || p.includes('page.jsx'));
-
-    if (!hasLayout) {
-        errors.push('Missing root layout file (app/layout.tsx)');
-    }
+    // Check that essential files exist (React SPA or Next.js)
+    const hasPage = filePaths.some(p =>
+        p.includes('page.tsx') ||
+        p.includes('page.jsx') ||
+        p.includes('App.tsx') ||
+        p.includes('App.jsx')
+    );
 
     if (!hasPage) {
-        errors.push('Missing root page file (app/page.tsx)');
+        errors.push('Missing main component file (app/page.tsx or App.tsx)');
     }
 
     return {

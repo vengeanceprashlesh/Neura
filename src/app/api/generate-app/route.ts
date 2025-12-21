@@ -71,7 +71,12 @@ export async function POST(request: NextRequest) {
         }
 
         // Step 3: Generate code
-        const project = await generateCode(spec, frontendTemplates, backendTemplates);
+        let project = await generateCode(spec, frontendTemplates, backendTemplates);
+
+        // Step 3.5: Post-process to fix common Sandpack issues (PRODUCTION-READY)
+        // This automatically combines multi-file apps into single files to avoid import/export errors
+        const { fixGeneratedCode } = await import('@/lib/code/post-process');
+        project = fixGeneratedCode(project);
 
         // Step 4: Validate generated code
         const validation = validateGeneratedProject(project);

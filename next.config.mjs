@@ -1,14 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     reactStrictMode: false,
+    // Disable CSP for development to avoid Sandpack CORS issues
     async headers() {
         return [
             {
-                source: '/((?!api|_next/static|_next/image|favicon.ico).*)',
+                source: '/:path*',
                 headers: [
                     {
                         key: 'Content-Security-Policy',
-                        value: "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https: http: ws: wss:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http: blob: data:; style-src 'self' 'unsafe-inline' https: http:; img-src 'self' blob: data: https: http:; font-src 'self' data: https: http:; connect-src 'self' https: http: ws: wss:; frame-src 'self' https: http: data: blob: *.codesandbox.io;"
+                        value: "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval' blob: data:; style-src * 'unsafe-inline'; img-src * blob: data:; font-src * data:; connect-src *; frame-src *; worker-src * blob:;"
                     },
                 ],
             },

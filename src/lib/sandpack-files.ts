@@ -140,12 +140,11 @@ export const DEFAULT_FILES: SandpackFiles = {
 };
 
 // Custom dependencies for Sandpack
+// ONLY packages that actually work in Sandpack's CDN bundler
 export const SANDPACK_DEPENDENCIES = {
   'lucide-react': 'latest',
-  'framer-motion': 'latest',
-  'three': 'latest',
-  '@types/three': 'latest',
-  '@supabase/supabase-js': 'latest',
+  // NOTE: Most npm packages DON'T work in Sandpack due to complex dependencies
+  // Removed: @supabase/supabase-js, framer-motion, three
 };
 
 // Three.js Scene component (available as additional file)

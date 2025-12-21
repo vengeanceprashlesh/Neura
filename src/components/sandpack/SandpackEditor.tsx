@@ -10,42 +10,51 @@ import {
 import { useAppStore } from '@/lib/store/use-app-store';
 import { SANDPACK_DEPENDENCIES } from '@/lib/sandpack-files';
 import { ErrorPanel } from './ErrorPanel';
+import { useMemo } from 'react';
 
 export function SandpackEditor() {
     const { currentCode } = useAppStore();
 
     // Convert SandpackFiles to the format Sandpack expects
     // Also transform Next.js paths to React SPA paths for preview
-    const files = Object.entries(currentCode).reduce((acc, [path, file]) => {
-        let transformedPath = path;
+    const files = useMemo(() => {
+        return Object.entries(currentCode).reduce((acc, [path, file]) => {
+            let transformedPath = path;
 
-        // Transform Next.js App Router paths to React SPA paths for Sandpack
-        if (path === '/app/page.tsx') {
-            transformedPath = '/App.tsx';
-        } else if (path === '/app/layout.tsx') {
-            // Skip layout for React SPA
+            // Transform Next.js App Router paths to React SPA paths for Sandpack
+            if (path === '/app/page.tsx') {
+                transformedPath = '/App.tsx';
+            } else if (path === '/app/layout.tsx') {
+                // Skip layout for React SPA
+                return acc;
+            } else if (path === '/app/globals.css') {
+                transformedPath = '/styles.css';
+            } else if (path.startsWith('/app/')) {
+                // Transform other app directory files
+                transformedPath = path.replace('/app/', '/');
+            }
+
+            if (typeof file === 'string') {
+                acc[transformedPath] = { code: file };
+            } else {
+                acc[transformedPath] = {
+                    ...file,
+                    active: transformedPath === '/App.tsx' ? true : file.active
+                };
+            }
             return acc;
-        } else if (path === '/app/globals.css') {
-            transformedPath = '/styles.css';
-        } else if (path.startsWith('/app/')) {
-            // Transform other app directory files
-            transformedPath = path.replace('/app/', '/');
-        }
+        }, {} as Record<string, { code: string; active?: boolean; hidden?: boolean; readOnly?: boolean }>);
+    }, [currentCode]);
 
-        if (typeof file === 'string') {
-            acc[transformedPath] = { code: file };
-        } else {
-            acc[transformedPath] = {
-                ...file,
-                active: transformedPath === '/App.tsx' ? true : file.active
-            };
-        }
-        return acc;
-    }, {} as Record<string, { code: string; active?: boolean; hidden?: boolean; readOnly?: boolean }>);
+    // Generate a key based on file paths to force remount when files change significantly
+    const sandpackKey = useMemo(() => {
+        return Object.keys(files).sort().join(',');
+    }, [files]);
 
     return (
         <div className="h-full flex flex-col">
             <SandpackProvider
+                key={sandpackKey}
                 template="react-ts"
                 files={files}
                 customSetup={{
@@ -56,6 +65,11 @@ export function SandpackEditor() {
                     externalResources: [],
                     recompileMode: 'delayed',
                     recompileDelay: 500,
+                    autorun: true,
+                    autoReload: true,
+                    initMode: 'lazy',
+                    bundlerURL: 'https://sandpack-bundler.codesandbox.io',
+                    skipEval: false,
                 }}
             >
                 <SandpackLayout className="flex-1 !rounded-none !border-0">
