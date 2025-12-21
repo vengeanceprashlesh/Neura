@@ -1,57 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSupabase, isSupabaseConfigured } from '@/lib/supabase/client';
-import { ProjectWithFiles, ApiError, AppSpecSchema } from '@/lib/types/app';
+import { getServerSupabase } from '@/lib/supabase/client';
+
+export const maxDuration = 60;
 
 type RouteParams = { params: Promise<{ id: string }> };
 
-// GET /api/projects/[id] - Get project details with files
+// GET /api/projects/[id] - Load project with files
 export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
         const { id } = await params;
+        const supabase = getServerSupabase();
 
-        if (!isSupabaseConfigured) {
-            return NextResponse.json<ApiError>(
+        if (!supabase) {
+            return NextResponse.json(
                 { error: 'Database not configured' },
-                { status: 503 }
+                { status: 500 }
             );
         }
 
-        const supabase = getServerSupabase()!;
-
-        // Fetch project
+        // Get project
         const { data: project, error: projectError } = await supabase
             .from('projects')
-            .select('id, owner_id, name, spec, created_at')
+            .select('*')
             .eq('id', id)
             .single();
 
         if (projectError || !project) {
-            return NextResponse.json<ApiError>(
+            return NextResponse.json(
                 { error: 'Project not found' },
                 { status: 404 }
             );
         }
 
-        // Fetch project files
+        // Get files
         const { data: files, error: filesError } = await supabase
             .from('project_files')
-            .select('id, project_id, path, content')
+            .select('path, content')
             .eq('project_id', id);
 
         if (filesError) {
-            console.error('Failed to fetch project files:', filesError);
+            console.error('Failed to fetch files:', filesError);
+            return NextResponse.json(
+                { error: 'Failed to fetch project files' },
+                { status: 500 }
+            );
         }
 
-        const projectWithFiles: ProjectWithFiles = {
-            ...project,
-            files: files || [],
-        };
+        // Convert files array to object
+        const filesMap: Record<string, string> = {};
+        if (files) {
+            for (const file of files) {
+                filesMap[file.path] = file.content;
+            }
+        }
 
-        return NextResponse.json({ project: projectWithFiles });
+        return NextResponse.json({
+            project: {
+                id: project.id,
+                name: project.name,
+                description: project.description,
+                spec: project.spec,
+                created_at: project.created_at,
+                updated_at: project.updated_at
+            },
+            files: filesMap
+        });
+
     } catch (error) {
-        console.error('Get project error:', error);
-        return NextResponse.json<ApiError>(
-            { error: 'Internal server error' },
+        console.error('Load project error:', error);
+        return NextResponse.json(
+            { error: 'Failed to load project' },
             { status: 500 }
         );
     }
@@ -62,51 +80,30 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     try {
         const { id } = await params;
         const body = await request.json();
-        const { name, spec, files } = body;
+        const { name, description, files } = body;
 
-        if (!isSupabaseConfigured) {
-            return NextResponse.json<ApiError>(
+        const supabase = getServerSupabase();
+        if (!supabase) {
+            return NextResponse.json(
                 { error: 'Database not configured' },
-                { status: 503 }
+                { status: 500 }
             );
         }
 
-        const supabase = getServerSupabase()!;
+        // Update project metadata
+        const updates: any = {};
+        if (name) updates.name = name;
+        if (description !== undefined) updates.description = description;
 
-        // Build update object
-        const updates: Record<string, unknown> = {};
-
-        if (name !== undefined) {
-            if (typeof name !== 'string' || name.length < 1) {
-                return NextResponse.json<ApiError>(
-                    { error: 'Invalid project name' },
-                    { status: 400 }
-                );
-            }
-            updates.name = name;
-        }
-
-        if (spec !== undefined) {
-            const parsedSpec = AppSpecSchema.safeParse(spec);
-            if (!parsedSpec.success) {
-                return NextResponse.json<ApiError>(
-                    { error: 'Invalid app specification' },
-                    { status: 400 }
-                );
-            }
-            updates.spec = parsedSpec.data;
-        }
-
-        // Update project if there are changes
         if (Object.keys(updates).length > 0) {
-            const { error: updateError } = await supabase
+            const { error: projectError } = await supabase
                 .from('projects')
                 .update(updates)
                 .eq('id', id);
 
-            if (updateError) {
-                console.error('Failed to update project:', updateError);
-                return NextResponse.json<ApiError>(
+            if (projectError) {
+                console.error('Failed to update project:', projectError);
+                return NextResponse.json(
                     { error: 'Failed to update project' },
                     { status: 500 }
                 );
@@ -114,7 +111,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
 
         // Update files if provided
-        if (files && typeof files === 'object') {
+        if (files && Object.keys(files).length > 0) {
             // Delete existing files
             await supabase
                 .from('project_files')
@@ -125,7 +122,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             const fileRecords = Object.entries(files).map(([path, content]) => ({
                 project_id: id,
                 path,
-                content: content as string,
+                content: typeof content === 'string' ? content : (content as any).code || ''
             }));
 
             const { error: filesError } = await supabase
@@ -133,15 +130,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
                 .insert(fileRecords);
 
             if (filesError) {
-                console.error('Failed to update project files:', filesError);
+                console.error('Failed to update files:', filesError);
+                return NextResponse.json(
+                    { error: 'Failed to update files' },
+                    { status: 500 }
+                );
             }
         }
 
         return NextResponse.json({ success: true });
+
     } catch (error) {
         console.error('Update project error:', error);
-        return NextResponse.json<ApiError>(
-            { error: 'Internal server error' },
+        return NextResponse.json(
+            { error: 'Failed to update project' },
             { status: 500 }
         );
     }
@@ -151,17 +153,22 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
     try {
         const { id } = await params;
+        const supabase = getServerSupabase();
 
-        if (!isSupabaseConfigured) {
-            return NextResponse.json<ApiError>(
+        if (!supabase) {
+            return NextResponse.json(
                 { error: 'Database not configured' },
-                { status: 503 }
+                { status: 500 }
             );
         }
 
-        const supabase = getServerSupabase()!;
+        // Delete files first (foreign key constraint)
+        await supabase
+            .from('project_files')
+            .delete()
+            .eq('project_id', id);
 
-        // Delete project (files will be cascade deleted)
+        // Delete project
         const { error } = await supabase
             .from('projects')
             .delete()
@@ -169,17 +176,18 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
         if (error) {
             console.error('Failed to delete project:', error);
-            return NextResponse.json<ApiError>(
+            return NextResponse.json(
                 { error: 'Failed to delete project' },
                 { status: 500 }
             );
         }
 
         return NextResponse.json({ success: true });
+
     } catch (error) {
         console.error('Delete project error:', error);
-        return NextResponse.json<ApiError>(
-            { error: 'Internal server error' },
+        return NextResponse.json(
+            { error: 'Failed to delete project' },
             { status: 500 }
         );
     }

@@ -1,6 +1,32 @@
 import { create } from 'zustand';
 import { Message, FileNode, SandpackFiles } from '@/lib/types';
-import { DEFAULT_FILES } from '@/lib/sandpack-files';
+
+// Default files for new projects
+const DEFAULT_FILES: SandpackFiles = {
+    '/App.tsx': {
+        code: `export default function App() {
+  return (
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-5xl font-bold text-white mb-4">
+          Welcome to Neura
+        </h1>
+        <p className="text-zinc-400 text-lg">
+          Describe your app idea in the chat to get started!
+        </p>
+      </div>
+    </div>
+  );
+}`,
+        active: true,
+    },
+    '/styles.css': {
+        code: `body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+}`,
+    },
+};
 
 interface AppState {
     // Current code state
@@ -12,10 +38,9 @@ interface AppState {
     // Virtual file structure
     fileStructure: FileNode[];
 
-    // Last assistant message (synced from useChat for code generation)
-    lastAssistantMessage: string | null;
+    lastAssistantMessage: Message | null;
+    selectedFile: string | null;
 
-    // App generation state
     isGenerating: boolean;
     generationError: string | null;
     currentProjectId: string | null;
@@ -26,12 +51,18 @@ interface AppState {
     addMessage: (message: Omit<Message, 'id' | 'timestamp'>) => void;
     clearChatHistory: () => void;
     updateFileStructure: (files: FileNode[]) => void;
-    setLastAssistantMessage: (content: string) => void;
+    setLastAssistantMessage: (content: Message | null) => void;
     setIsGenerating: (value: boolean) => void;
     setGenerationError: (error: string | null) => void;
     setCurrentProjectId: (id: string | null) => void;
     loadGeneratedFiles: (files: Record<string, string>) => void;
     resetToDefault: () => void;
+
+    // File operations
+    setSelectedFile: (path: string | null) => void;
+    createFile: (path: string, content: string) => void;
+    renameFile: (oldPath: string, newPath: string) => void;
+    deleteFile: (path: string) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -39,10 +70,11 @@ export const useAppStore = create<AppState>((set) => ({
     currentCode: DEFAULT_FILES,
     chatHistory: [],
     fileStructure: [
-        { path: '/App.tsx', type: 'file' },
-        { path: '/styles.css', type: 'file' },
+        { path: '/src/App.tsx', type: 'file' },
+        { path: '/src/styles.css', type: 'file' },
     ],
     lastAssistantMessage: null,
+    selectedFile: null,
     isGenerating: false,
     generationError: null,
     currentProjectId: null,
@@ -77,7 +109,7 @@ export const useAppStore = create<AppState>((set) => ({
     updateFileStructure: (files) =>
         set({ fileStructure: files }),
 
-    setLastAssistantMessage: (content) =>
+    setLastAssistantMessage: (content: Message | null) =>
         set({ lastAssistantMessage: content }),
 
     setIsGenerating: (value) =>
@@ -91,67 +123,32 @@ export const useAppStore = create<AppState>((set) => ({
 
     // Load generated files into Sandpack format
     // The AI generates Next.js App Router files, we transform them for React SPA preview
-    loadGeneratedFiles: (files) =>
-        set(() => {
-            const sandpackFiles: SandpackFiles = {};
+    loadGeneratedFiles: (files: Record<string, string>) => {
+        const sandpackFiles: SandpackFiles = {};
+        const fileStructure: FileNode[] = [];
 
-            for (const [path, content] of Object.entries(files)) {
-                let normalizedPath = path.startsWith('/') ? path : `/${path}`;
+        for (const [path, content] of Object.entries(files)) {
+            // Normalize path
+            let normalizedPath = path.startsWith('/') ? path : `/${path}`;
 
-                // Transform Next.js paths to React SPA paths for Sandpack preview
-                if (normalizedPath === '/app/page.tsx' || normalizedPath === '/page.tsx') {
-                    normalizedPath = '/App.tsx';
-                } else if (normalizedPath === '/app/layout.tsx' || normalizedPath === '/layout.tsx') {
-                    // Include layout as a separate file
-                    normalizedPath = '/Layout.tsx';
-                } else if (normalizedPath === '/app/globals.css' || normalizedPath === '/globals.css') {
-                    normalizedPath = '/styles.css';
-                } else if (normalizedPath.startsWith('/app/')) {
-                    // Transform other app directory files
-                    normalizedPath = normalizedPath.replace('/app/', '/');
-                }
-
-                sandpackFiles[normalizedPath] = {
-                    code: content,
-                    active: normalizedPath === '/App.tsx',
-                };
-            }
-
-            // Ensure we have at least App.tsx
-            if (!sandpackFiles['/App.tsx']) {
-                // Find any page file and use it as App.tsx
-                const pageFile = Object.entries(files).find(([path]) =>
-                    path.includes('page.tsx') || path.includes('Page.tsx')
-                );
-                if (pageFile) {
-                    sandpackFiles['/App.tsx'] = {
-                        code: pageFile[1],
-                        active: true,
-                    };
-                }
-            }
-
-            // Add default styles if missing
-            if (!sandpackFiles['/styles.css']) {
-                sandpackFiles['/styles.css'] = {
-                    code: `body { margin: 0; font-family: system-ui, sans-serif; }`,
-                };
-            }
-
-            // Update file structure
-            const fileStructure: FileNode[] = Object.keys(sandpackFiles).map((path) => ({
-                path,
-                type: 'file' as const,
-            }));
-
-            return {
-                currentCode: sandpackFiles,
-                fileStructure,
-                generationError: null,
+            sandpackFiles[normalizedPath] = {
+                code: content,
+                active: normalizedPath === '/App.tsx' || normalizedPath === '/src/App.tsx',
             };
-        }),
 
-    // Reset to default files
+            fileStructure.push({
+                path: normalizedPath,
+                type: 'file',
+            });
+        }
+
+        set({
+            currentCode: sandpackFiles,
+            fileStructure,
+            lastAssistantMessage: null,
+        });
+    },
+
     resetToDefault: () =>
         set({
             currentCode: DEFAULT_FILES,
@@ -161,5 +158,46 @@ export const useAppStore = create<AppState>((set) => ({
             ],
             currentProjectId: null,
             generationError: null,
+        }),
+
+    // File operations
+    setSelectedFile: (path) => set({ selectedFile: path }),
+
+    createFile: (path, content) =>
+        set((state) => ({
+            currentCode: {
+                ...state.currentCode,
+                [path]: { code: content, active: false },
+            },
+            fileStructure: [
+                ...state.fileStructure,
+                { path, type: 'file' },
+            ],
+            selectedFile: path,
+        })),
+
+    renameFile: (oldPath, newPath) =>
+        set((state) => {
+            const { [oldPath]: file, ...rest } = state.currentCode;
+            return {
+                currentCode: {
+                    ...rest,
+                    [newPath]: file,
+                },
+                fileStructure: state.fileStructure.map((f) =>
+                    f.path === oldPath ? { ...f, path: newPath } : f
+                ),
+                selectedFile: state.selectedFile === oldPath ? newPath : state.selectedFile,
+            };
+        }),
+
+    deleteFile: (path) =>
+        set((state) => {
+            const { [path]: _, ...rest } = state.currentCode;
+            return {
+                currentCode: rest,
+                fileStructure: state.fileStructure.filter((f) => f.path !== path),
+                selectedFile: state.selectedFile === path ? null : state.selectedFile,
+            };
         }),
 }));

@@ -66,11 +66,15 @@ export function ChatPanel() {
     };
 
     // Helper to get text content from message parts
-    const getMessageText = (message: typeof messages[number]) => {
-        return message.parts
-            .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
-            .map(part => part.text)
-            .join('');
+    const getMessageText = (message: any) => {
+        if (message.content) return message.content;
+        if (message.parts && Array.isArray(message.parts)) {
+            return message.parts
+                .filter((part: any) => part.type === 'text')
+                .map((part: any) => part.text)
+                .join('');
+        }
+        return '';
     };
 
     // Get the user's app description from messages
@@ -79,7 +83,7 @@ export function ChatPanel() {
         return userMessages.map(m => getMessageText(m)).join('\n\n');
     };
 
-    // Handle app generation
+    // Handle app generation using patch-based system
     const handleGenerateApp = async () => {
         const description = getAppDescription();
         if (!description.trim()) {
@@ -91,12 +95,50 @@ export function ChatPanel() {
         setGenerationError(null);
 
         try {
-            const result = await generateApp(description);
-            setCurrentProjectId(result.projectId);
-            loadGeneratedFiles(result.files);
+            // Get current files from store
+            const currentFiles = useAppStore.getState().currentCode;
+
+            // Convert Sandpack file format to simple Record<string, string>
+            const filesMap: Record<string, string> = {};
+            for (const [path, file] of Object.entries(currentFiles)) {
+                filesMap[path] = typeof file === 'string' ? file : file.code;
+            }
+
+            // Call new patch-based endpoint
+            const response = await fetch('/api/apply-prompt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: description,
+                    files: filesMap,
+                    activeFile: null,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to generate app');
+            }
+
+            const { patches } = await response.json();
+
+            // Apply patches to get new files
+            const { applyPatches } = await import('@/lib/sandpack/applyPatches');
+            const newFiles = applyPatches(filesMap, patches);
+
+            // Convert back to Sandpack format and load
+            const sandpackFiles: Record<string, { code: string; active?: boolean }> = {};
+            for (const [path, content] of Object.entries(newFiles)) {
+                sandpackFiles[path] = {
+                    code: content,
+                    active: path === 'App.tsx',
+                };
+            }
+
+            loadGeneratedFiles(newFiles);
 
             // Add a confirmation message
-            sendMessage({ text: '✅ App generated! Check the editor on the right.' });
+            sendMessage({ text: `✅ App ${Object.keys(filesMap).length === 0 ? 'created' : 'updated'}! Check the editor on the right.` });
         } catch (error) {
             console.error('Generation error:', error);
             setGenerationError(error instanceof Error ? error.message : 'Failed to generate app');

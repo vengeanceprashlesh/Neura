@@ -181,46 +181,29 @@ export async function generateCode(
 ): Promise<GeneratedProject> {
     const { client, config } = getLLMClient();
 
-    const systemPrompt = `You are an expert React developer creating code for a live preview sandbox.
+    const systemPrompt = `You are an expert React and Next.js developer creating code for a full application.
 
-Given an AppSpec JSON defining the app structure, generate React component files.
+Given an AppSpec JSON defining the app structure, generate a complete file tree.
 
-CRITICAL RULES FOR SANDPACK COMPATIBILITY:
-1. Generate React SPA code (NOT Next.js App Router)
-2. Main component MUST be: export default function App()
-3. Keep it SIMPLE - prefer ONE file for simple apps
-4. If using multiple components:
-   - app/page.tsx: MUST have "export default function App()"
-   - app/components.tsx: Use NAMED exports: "export function ComponentName()"
-   - Import as: import { ComponentName } from './components'
-   
-5. EXPORT EXAMPLES (COPY THESE EXACTLY):
-
-// app/page.tsx - ALWAYS use default export
-import { useState } from 'react';
-import { TodoItem } from './components'; // named import
-
-export default function App() {
-  return <div><TodoItem /></div>;
-}
-
-// app/components.tsx - ALWAYS use named exports
-export function TodoItem() {
-  return <div>Item</div>;
-}
-
-6. Available: lucide-react (icons only), React hooks
-7. Styling: inline styles with style={{}} prop
-8. NO external packages except lucide-react
-9. Keep apps SIMPLE - working > complex
+TECHNICAL RULES:
+1. Use Next.js App Router structure in the 'app/' directory.
+2. Main UI component MUST be in 'app/page.tsx' and MUST have: export default function App()
+3. Use Lucide React for icons.
+4. Use Framer Motion for animations.
+5. Use React Three Fiber and Drei for 3D elements if requested.
+6. Use Supabase (@supabase/supabase-js) for data fetching if needed.
+7. Use Tailwind CSS for styling (className).
+8. If you use multiple files, YOU MUST DEFINE AND EXPORT EVERY COMPONENT YOU USE.
+9. DO NOT reference components that you haven't written in the 'files' object.
+10. For modularity, use 'components/' directory for shared components.
 
 Output ONLY valid JSON:
 {
   "spec": <the input AppSpec>,
   "files": {
-    "app/page.tsx": "// MUST have: export default function App()",
-    "app/components.tsx": "// Use: export function ComponentName()",
-    "app/globals.css": "/* optional CSS */"
+    "app/page.tsx": "import { Hero } from '@/components/Hero';\nexport default function App() { ... }",
+    "components/Hero.tsx": "export function Hero() { ... }",
+    "app/globals.css": "@tailwind base; @tailwind components; @tailwind utilities;"
   }
 }`;
 

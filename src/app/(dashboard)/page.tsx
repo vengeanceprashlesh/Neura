@@ -1,36 +1,32 @@
 'use client';
 
-import {
-    ResizableHandle,
-    ResizablePanel,
-    ResizablePanelGroup,
-} from '@/components/ui/resizable';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { ChatPanel } from './_components/chat-panel';
-import { SandboxPanel } from './_components/sandbox-panel';
+import { ResizableLayout } from '@/components/layout/ResizableLayout';
 import { ClientOnly } from '@/components/client-only';
+import { GripVertical } from 'lucide-react';
 
 export default function DashboardPage() {
     return (
         <div className="h-screen w-screen overflow-hidden bg-zinc-950">
             <ClientOnly>
-                <ResizablePanelGroup direction="horizontal" className="h-full">
-                    {/* Left Panel - Chat */}
-                    <ResizablePanel
-                        defaultSize={30}
-                        minSize={25}
-                        maxSize={45}
-                        className="border-r border-zinc-800"
-                    >
+                <PanelGroup direction="vertical" className="h-full">
+                    {/* Top Panel - File Tree, Editor, Preview */}
+                    <Panel defaultSize={75} minSize={50}>
+                        <ResizableLayout />
+                    </Panel>
+
+                    <PanelResizeHandle className="h-1 bg-zinc-800 hover:bg-indigo-500 transition-colors relative group">
+                        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-4 flex items-center justify-center">
+                            <GripVertical size={16} className="text-zinc-600 group-hover:text-indigo-400 rotate-90" />
+                        </div>
+                    </PanelResizeHandle>
+
+                    {/* Bottom Panel - Chat */}
+                    <Panel defaultSize={25} minSize={20} maxSize={40}>
                         <ChatPanel />
-                    </ResizablePanel>
-
-                    <ResizableHandle className="w-1 bg-zinc-800 hover:bg-indigo-500 transition-colors" />
-
-                    {/* Right Panel - Sandpack Editor & Preview */}
-                    <ResizablePanel defaultSize={70} minSize={50}>
-                        <SandboxPanel />
-                    </ResizablePanel>
-                </ResizablePanelGroup>
+                    </Panel>
+                </PanelGroup>
             </ClientOnly>
         </div>
     );

@@ -1,37 +1,21 @@
 'use client';
 
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { SandpackEditor } from '@/components/sandpack';
-import { Code2, FolderTree } from 'lucide-react';
+import { StackBlitzPreview } from '@/components/stackblitz/StackBlitzPreview';
+import { useAppStore } from '@/lib/store/use-app-store';
 
 export function SandboxPanel() {
-    return (
-        <div className="h-full flex flex-col bg-zinc-900">
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-zinc-950">
-                <Tabs defaultValue="editor" className="w-full">
-                    <TabsList className="bg-zinc-900 border border-zinc-800">
-                        <TabsTrigger
-                            value="editor"
-                            className="gap-1.5 text-xs data-[state=active]:bg-zinc-800"
-                        >
-                            <Code2 size={14} />
-                            Editor
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="files"
-                            className="gap-1.5 text-xs data-[state=active]:bg-zinc-800"
-                        >
-                            <FolderTree size={14} />
-                            Files
-                        </TabsTrigger>
-                    </TabsList>
-                </Tabs>
-            </div>
+    const { currentCode } = useAppStore();
 
-            {/* Content */}
-            <div className="flex-1 min-h-0">
-                <SandpackEditor />
+    // Convert Sandpack file format to simple Record<string, string>
+    const files: Record<string, string> = {};
+    for (const [path, file] of Object.entries(currentCode)) {
+        files[path] = typeof file === 'string' ? file : file.code;
+    }
+
+    return (
+        <div className="h-full flex flex-col bg-zinc-950">
+            <div className="flex-1 overflow-hidden">
+                <StackBlitzPreview files={files} />
             </div>
         </div>
     );

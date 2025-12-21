@@ -109,8 +109,8 @@ export function validateGeneratedProject(project: GeneratedProject): ValidationR
             pattern.lastIndex = 0;
         }
 
-        // Validate file paths
-        if (path.includes('..') || path.startsWith('/')) {
+        // Validate file paths - only reject paths with .. (directory traversal)
+        if (path.includes('..')) {
             errors.push(`Invalid file path: ${path}`);
         }
     }
