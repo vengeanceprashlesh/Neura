@@ -42,6 +42,7 @@ interface AppState {
     selectedFile: string | null;
 
     isGenerating: boolean;
+    isSaving: boolean;
     generationError: string | null;
     currentProjectId: string | null;
 
@@ -53,6 +54,7 @@ interface AppState {
     updateFileStructure: (files: FileNode[]) => void;
     setLastAssistantMessage: (content: Message | null) => void;
     setIsGenerating: (value: boolean) => void;
+    setIsSaving: (value: boolean) => void;
     setGenerationError: (error: string | null) => void;
     setCurrentProjectId: (id: string | null) => void;
     loadGeneratedFiles: (files: Record<string, string>) => void;
@@ -76,6 +78,7 @@ export const useAppStore = create<AppState>((set) => ({
     lastAssistantMessage: null,
     selectedFile: null,
     isGenerating: false,
+    isSaving: false,
     generationError: null,
     currentProjectId: null,
 
@@ -114,6 +117,9 @@ export const useAppStore = create<AppState>((set) => ({
 
     setIsGenerating: (value) =>
         set({ isGenerating: value }),
+
+    setIsSaving: (value) =>
+        set({ isSaving: value }),
 
     setGenerationError: (error) =>
         set({ generationError: error }),

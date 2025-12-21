@@ -1,32 +1,63 @@
 'use client';
 
+import { useState } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { ChatPanel } from './_components/chat-panel';
-import { ResizableLayout } from '@/components/layout/ResizableLayout';
+import { Header } from '@/components/layout/Header';
+import { CommandPalette } from '@/components/ui/CommandPalette';
+import { KeyboardShortcuts } from '@/components/ui/KeyboardShortcuts';
+import { StackBlitzPreview } from '@/components/stackblitz/StackBlitzPreview';
 import { ClientOnly } from '@/components/client-only';
 import { GripVertical } from 'lucide-react';
+import { useAppStore } from '@/lib/store/use-app-store';
 
 export default function DashboardPage() {
+    const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+    const { currentCode } = useAppStore();
+
+    // Convert files for preview
+    const files: Record<string, string> = {};
+    for (const [path, file] of Object.entries(currentCode)) {
+        files[path] = typeof file === 'string' ? file : file.code;
+    }
+
     return (
-        <div className="h-screen w-screen overflow-hidden bg-zinc-950">
+        <div className="h-screen w-screen overflow-hidden bg-zinc-950 flex flex-col">
             <ClientOnly>
-                <PanelGroup direction="vertical" className="h-full">
-                    {/* Top Panel - File Tree, Editor, Preview */}
-                    <Panel defaultSize={75} minSize={50}>
-                        <ResizableLayout />
-                    </Panel>
+                {/* Header */}
+                <Header onCommandPalette={() => setCommandPaletteOpen(true)} />
 
-                    <PanelResizeHandle className="h-1 bg-zinc-800 hover:bg-indigo-500 transition-colors relative group">
-                        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-4 flex items-center justify-center">
-                            <GripVertical size={16} className="text-zinc-600 group-hover:text-indigo-400 rotate-90" />
-                        </div>
-                    </PanelResizeHandle>
+                {/* Command Palette */}
+                <CommandPalette
+                    open={commandPaletteOpen}
+                    onOpenChange={setCommandPaletteOpen}
+                />
 
-                    {/* Bottom Panel - Chat */}
-                    <Panel defaultSize={25} minSize={20} maxSize={40}>
-                        <ChatPanel />
-                    </Panel>
-                </PanelGroup>
+                {/* Keyboard Shortcuts */}
+                <KeyboardShortcuts
+                    onCommandPalette={() => setCommandPaletteOpen(true)}
+                />
+
+                {/* Main Content - 2 Panels */}
+                <div className="flex-1 overflow-hidden">
+                    <PanelGroup direction="horizontal" className="h-full">
+                        {/* Left Panel - Chat */}
+                        <Panel defaultSize={35} minSize={25} maxSize={50}>
+                            <ChatPanel />
+                        </Panel>
+
+                        <PanelResizeHandle className="w-1 bg-zinc-800 hover:bg-indigo-500 transition-colors relative group">
+                            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-4 flex items-center justify-center">
+                                <GripVertical size={16} className="text-zinc-600 group-hover:text-indigo-400" />
+                            </div>
+                        </PanelResizeHandle>
+
+                        {/* Right Panel - Preview */}
+                        <Panel defaultSize={65} minSize={50}>
+                            <StackBlitzPreview files={files} />
+                        </Panel>
+                    </PanelGroup>
+                </div>
             </ClientOnly>
         </div>
     );

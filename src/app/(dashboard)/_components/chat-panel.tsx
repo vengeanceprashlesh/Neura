@@ -83,7 +83,7 @@ export function ChatPanel() {
         return userMessages.map(m => getMessageText(m)).join('\n\n');
     };
 
-    // Handle app generation using patch-based system
+    // Handle app generation using new unified endpoint
     const handleGenerateApp = async () => {
         const description = getAppDescription();
         if (!description.trim()) {
@@ -104,14 +104,13 @@ export function ChatPanel() {
                 filesMap[path] = typeof file === 'string' ? file : file.code;
             }
 
-            // Call new patch-based endpoint
-            const response = await fetch('/api/apply-prompt', {
+            // Call unified generate endpoint
+            const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     prompt: description,
-                    files: filesMap,
-                    activeFile: null,
+                    existingFiles: Object.keys(filesMap).length > 2 ? filesMap : undefined, // Only send if not default files
                 }),
             });
 
@@ -120,28 +119,32 @@ export function ChatPanel() {
                 throw new Error(errorData.error || 'Failed to generate app');
             }
 
-            const { patches } = await response.json();
+            const data = await response.json();
 
-            // Apply patches to get new files
-            const { applyPatches } = await import('@/lib/sandpack/applyPatches');
-            const newFiles = applyPatches(filesMap, patches);
-
-            // Convert back to Sandpack format and load
-            const sandpackFiles: Record<string, { code: string; active?: boolean }> = {};
-            for (const [path, content] of Object.entries(newFiles)) {
-                sandpackFiles[path] = {
-                    code: content,
-                    active: path === 'App.tsx',
-                };
+            if (data.error) {
+                throw new Error(data.error);
             }
 
-            loadGeneratedFiles(newFiles);
+            if (!data.files || Object.keys(data.files).length === 0) {
+                throw new Error('No files generated');
+            }
 
-            // Add a confirmation message
-            sendMessage({ text: `✅ App ${Object.keys(filesMap).length === 0 ? 'created' : 'updated'}! Check the editor on the right.` });
+            // Load generated files into store
+            loadGeneratedFiles(data.files);
+
+            // Add success message
+            sendMessage({
+                text: `✅ App generated successfully! Created ${Object.keys(data.files).length} files. Check the preview on the right!`,
+            });
+
         } catch (error) {
             console.error('Generation error:', error);
-            setGenerationError(error instanceof Error ? error.message : 'Failed to generate app');
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            setGenerationError(errorMessage);
+
+            sendMessage({
+                text: `❌ Generation failed: ${errorMessage}`,
+            });
         } finally {
             setIsGenerating(false);
         }

@@ -294,3 +294,12 @@ function generateFallbackEmbedding(text: string, dimensions: number = 1536): num
 
     return embedding;
 }
+
+// Export helper for code generation
+export function getAIClient() {
+    const { client, config } = getLLMClient();
+    return {
+        ...client,
+        defaultModel: config.defaultModel
+    };
+}

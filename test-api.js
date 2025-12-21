@@ -1,9 +1,9 @@
 // Simple test script to check if the API is working
 async function testAPI() {
     const baseURL = 'http://localhost:3000';
-    
+
     console.log('Testing Neura API endpoints...\n');
-    
+
     // Test 1: Health check
     console.log('1. Testing health endpoint...');
     try {
@@ -14,7 +14,7 @@ async function testAPI() {
     } catch (error) {
         console.log(`   Error:`, error.message);
     }
-    
+
     // Test 2: Chat endpoint
     console.log('\n2. Testing chat endpoint...');
     try {
@@ -34,7 +34,7 @@ async function testAPI() {
     } catch (error) {
         console.log(`   Error:`, error.message);
     }
-    
+
     // Test 3: Homepage
     console.log('\n3. Testing homepage...');
     try {
@@ -44,7 +44,7 @@ async function testAPI() {
     } catch (error) {
         console.log(`   Error:`, error.message);
     }
-    
+
     console.log('\nTests complete!');
 }
 
