@@ -3,35 +3,37 @@
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { useEffect, useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAppStore } from '@/lib/store/use-app-store';
-import { PROMPT_SUGGESTIONS } from '@/lib/ai/prompts';
 import {
     Send,
-    Sparkles,
     Loader2,
-    Bot,
-    User,
-    Wand2,
+    Sparkles,
+    ArrowRight,
+    CheckCircle2,
     AlertCircle,
-    Lightbulb,
-    RefreshCw
+    Layout,
+    ListTodo,
+    Briefcase
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// Minimal suggestions
+const SUGGESTIONS = [
+    { icon: ListTodo, title: "Todo App", prompt: "Create a todo app" },
+    { icon: Briefcase, title: "Portfolio", prompt: "Create a portfolio website" },
+    { icon: Layout, title: "Dashboard", prompt: "Create an admin dashboard" },
+];
 
 export function ChatPanel() {
     const scrollRef = useRef<HTMLDivElement>(null);
     const [inputValue, setInputValue] = useState('');
+    const [generationStatus, setGenerationStatus] = useState<'idle' | 'generating' | 'success' | 'error'>('idle');
     const {
-        setLastAssistantMessage,
         loadGeneratedFiles,
         isGenerating,
         setIsGenerating,
         generationError,
         setGenerationError,
-        setCurrentProjectId,
         currentCode
     } = useAppStore();
 
@@ -43,23 +45,19 @@ export function ChatPanel() {
 
     const isLoading = status !== 'ready';
 
-    // Auto-scroll to bottom on new messages
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollIntoView({ behavior: 'smooth' });
         }
     }, [messages]);
 
-    // Handle form submission
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!inputValue.trim() || isLoading) return;
-
         sendMessage({ text: inputValue.trim() });
         setInputValue('');
     };
 
-    // Handle keyboard shortcuts
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -69,7 +67,6 @@ export function ChatPanel() {
         }
     };
 
-    // Helper to get text content from message parts
     const getMessageText = (message: any) => {
         if (message.content) return message.content;
         if (message.parts && Array.isArray(message.parts)) {
@@ -81,153 +78,124 @@ export function ChatPanel() {
         return '';
     };
 
-    // Get the user's app description from messages
     const getAppDescription = () => {
         const userMessages = messages.filter(m => m.role === 'user');
         return userMessages.map(m => getMessageText(m)).join('\n\n');
     };
 
     // Handle suggestion click
-    const handleSuggestionClick = (prompt: string) => {
-        setInputValue(prompt);
-        // Auto-send the message
+    const handleSuggestionClick = async (prompt: string) => {
         sendMessage({ text: prompt });
+        setTimeout(() => handleGenerateWithPrompt(prompt), 300);
     };
 
-    // Handle app generation
-    const handleGenerateApp = async () => {
-        const description = getAppDescription();
-        if (!description.trim()) {
-            setGenerationError('Please describe your app idea first');
-            return;
-        }
+    // Generate app
+    const handleGenerateWithPrompt = async (prompt: string) => {
+        if (!prompt.trim()) return;
 
         setIsGenerating(true);
         setGenerationError(null);
+        setGenerationStatus('generating');
 
         try {
-            // Get current files from store
             const filesMap: Record<string, string> = {};
             for (const [path, file] of Object.entries(currentCode)) {
                 filesMap[path] = typeof file === 'string' ? file : file.code;
             }
 
-            // Call generate endpoint with existing files as context
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    prompt: description,
+                    prompt: prompt,
                     existingFiles: Object.keys(filesMap).length > 0 ? filesMap : undefined,
                 }),
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to generate app');
-            }
-
             const data = await response.json();
 
-            if (data.error) {
-                throw new Error(data.error);
+            if (!response.ok || data.error) {
+                throw new Error(data.error || 'Generation failed');
             }
 
             if (!data.files || Object.keys(data.files).length === 0) {
-                throw new Error('No files generated. Please try a different description.');
+                throw new Error('No files generated');
             }
 
-            // Load generated files into store
             loadGeneratedFiles(data.files);
+            setGenerationStatus('success');
 
-            // Add success message
-            sendMessage({
-                text: `✨ App generated! Created ${Object.keys(data.files).length} files. Check the preview!`,
-            });
+            const statusMsg = data.isDemo
+                ? '✨ Demo app loaded! Add an API key for custom generation.'
+                : `✨ Created ${Object.keys(data.files).length} files`;
+
+            sendMessage({ text: statusMsg });
 
         } catch (error) {
-            console.error('Generation error:', error);
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             setGenerationError(errorMessage);
-
-            sendMessage({
-                text: `❌ Generation failed: ${errorMessage}`,
-            });
+            setGenerationStatus('error');
+            sendMessage({ text: `Error: ${errorMessage}` });
         } finally {
             setIsGenerating(false);
         }
     };
 
-    // Show generate button if there are user messages
-    const showGenerateButton = messages.some(m => m.role === 'user');
+    const handleGenerateApp = () => {
+        const description = getAppDescription();
+        if (!description.trim()) {
+            setGenerationError('Please describe your app first');
+            return;
+        }
+        handleGenerateWithPrompt(description);
+    };
+
+    const showGenerateButton = messages.some(m => m.role === 'user') && !isGenerating;
     const showSuggestions = messages.length === 0;
 
     return (
-        <div className="h-full flex flex-col bg-zinc-950">
-            {/* Header */}
-            <div className="p-4 border-b border-zinc-800">
-                <div className="flex items-center gap-2">
-                    <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg">
-                        <Sparkles size={18} className="text-white" />
-                    </div>
-                    <div>
-                        <h1 className="font-semibold text-white">Neura</h1>
-                        <p className="text-xs text-zinc-500">AI App Builder</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Messages Area */}
-            <ScrollArea className="flex-1 p-4">
+        <div className="h-full flex flex-col bg-black">
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-6">
                 {showSuggestions ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center p-6">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="p-4 bg-zinc-900 rounded-2xl border border-zinc-800 mb-4"
-                        >
-                            <Bot size={32} className="text-indigo-400" />
-                        </motion.div>
-                        <motion.h2
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.1 }}
-                            className="text-lg font-medium text-white mb-2"
-                        >
-                            What do you want to build?
-                        </motion.h2>
-                        <motion.p
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.2 }}
-                            className="text-sm text-zinc-500 max-w-[280px] mb-6"
-                        >
-                            Describe your app idea or try one of these suggestions:
-                        </motion.p>
-
-                        {/* Suggestions Grid */}
+                    <div className="h-full flex flex-col items-center justify-center">
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.3 }}
-                            className="grid grid-cols-2 gap-2 w-full max-w-[320px]"
+                            className="text-center max-w-sm"
                         >
-                            {PROMPT_SUGGESTIONS.map((suggestion, index) => (
-                                <motion.button
-                                    key={suggestion.title}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.4 + index * 0.05 }}
-                                    onClick={() => handleSuggestionClick(suggestion.prompt)}
-                                    className="p-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-indigo-500/50 rounded-xl text-left transition-all duration-200 group"
-                                >
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <Lightbulb size={14} className="text-indigo-400 group-hover:text-indigo-300" />
-                                        <span className="text-sm font-medium text-white">{suggestion.title}</span>
-                                    </div>
-                                    <p className="text-xs text-zinc-500">{suggestion.description}</p>
-                                </motion.button>
-                            ))}
+                            <div className="w-12 h-12 mx-auto mb-6 border border-white/20 rounded-xl flex items-center justify-center">
+                                <Sparkles className="w-6 h-6 text-white/60" />
+                            </div>
+                            <h2 className="text-xl font-semibold text-white mb-2">
+                                What would you like to build?
+                            </h2>
+                            <p className="text-white/40 text-sm mb-8">
+                                Choose a template or describe your own app
+                            </p>
+
+                            {/* Suggestions */}
+                            <div className="space-y-2">
+                                {SUGGESTIONS.map((item, i) => (
+                                    <motion.button
+                                        key={item.title}
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: 0.1 + i * 0.05 }}
+                                        onClick={() => handleSuggestionClick(item.prompt)}
+                                        disabled={isGenerating}
+                                        className="w-full flex items-center gap-3 p-3 border border-white/10 hover:border-white/30 rounded-xl transition-all group disabled:opacity-50"
+                                    >
+                                        <div className="w-8 h-8 border border-white/20 rounded-lg flex items-center justify-center group-hover:border-white/40 transition-colors">
+                                            <item.icon size={16} className="text-white/60" />
+                                        </div>
+                                        <span className="text-white/80 text-sm flex-1 text-left">
+                                            {item.title}
+                                        </span>
+                                        <ArrowRight size={14} className="text-white/30 group-hover:text-white/60 transition-colors" />
+                                    </motion.button>
+                                ))}
+                            </div>
                         </motion.div>
                     </div>
                 ) : (
@@ -238,126 +206,107 @@ export function ChatPanel() {
                                     key={message.id}
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'
-                                        }`}
+                                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                                 >
-                                    {message.role === 'assistant' && (
-                                        <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center shrink-0">
-                                            <Bot size={16} className="text-white" />
-                                        </div>
-                                    )}
                                     <div
-                                        className={`max-w-[80%] p-3 rounded-2xl text-sm ${message.role === 'user'
-                                            ? 'bg-indigo-600 text-white rounded-br-md'
-                                            : 'bg-zinc-800 text-zinc-200 rounded-bl-md'
+                                        className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm ${message.role === 'user'
+                                                ? 'bg-white text-black rounded-br-md'
+                                                : 'bg-white/5 text-white/80 rounded-bl-md border border-white/10'
                                             }`}
                                     >
-                                        <p className="whitespace-pre-wrap">{getMessageText(message)}</p>
+                                        {getMessageText(message)}
                                     </div>
-                                    {message.role === 'user' && (
-                                        <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center shrink-0">
-                                            <User size={16} className="text-white" />
-                                        </div>
-                                    )}
                                 </motion.div>
                             ))}
                         </AnimatePresence>
 
-                        {/* Loading indicator */}
-                        {status === 'streaming' && (
+                        {/* Loading */}
+                        {(status === 'streaming' || isGenerating) && (
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
-                                className="flex gap-3 justify-start"
+                                className="flex justify-start"
                             >
-                                <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center shrink-0">
-                                    <Bot size={16} className="text-white" />
-                                </div>
-                                <div className="bg-zinc-800 text-zinc-200 p-3 rounded-2xl rounded-bl-md">
-                                    <Loader2 size={16} className="animate-spin" />
+                                <div className="px-4 py-3 bg-white/5 border border-white/10 rounded-2xl rounded-bl-md flex items-center gap-2">
+                                    <Loader2 size={14} className="animate-spin text-white/60" />
+                                    <span className="text-white/60 text-sm">
+                                        {isGenerating ? 'Creating...' : 'Thinking...'}
+                                    </span>
                                 </div>
                             </motion.div>
                         )}
 
-                        {/* Scroll anchor */}
                         <div ref={scrollRef} />
                     </div>
                 )}
-            </ScrollArea>
+            </div>
 
             {/* Generate Button */}
             {showGenerateButton && (
-                <div className="px-4 pb-2">
-                    {/* Error Display */}
-                    <AnimatePresence>
-                        {generationError && (
-                            <motion.div
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: 'auto' }}
-                                exit={{ opacity: 0, height: 0 }}
-                                className="flex items-center gap-2 text-red-400 text-sm mb-2 p-3 bg-red-950/50 rounded-lg border border-red-900"
-                            >
-                                <AlertCircle size={14} />
-                                <span className="flex-1">{generationError}</span>
-                                <button
-                                    onClick={() => setGenerationError(null)}
-                                    className="text-red-300 hover:text-red-200"
-                                >
-                                    <RefreshCw size={14} />
-                                </button>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                <div className="px-6 pb-4">
+                    {generationStatus === 'success' && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="flex items-center gap-2 text-white/60 text-xs mb-3 px-3 py-2 bg-white/5 rounded-lg"
+                        >
+                            <CheckCircle2 size={12} />
+                            <span>App generated! Check the preview →</span>
+                        </motion.div>
+                    )}
 
-                    {/* Generate Button */}
-                    <Button
+                    {generationError && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="flex items-center gap-2 text-red-400 text-xs mb-3 px-3 py-2 bg-red-500/10 rounded-lg"
+                        >
+                            <AlertCircle size={12} />
+                            <span>{generationError}</span>
+                        </motion.div>
+                    )}
+
+                    <button
                         onClick={handleGenerateApp}
-                        disabled={isGenerating || isLoading}
-                        className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-medium h-12 text-base"
+                        disabled={isGenerating}
+                        className="w-full h-11 bg-white text-black font-medium rounded-xl hover:bg-white/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                        {isGenerating ? (
-                            <>
-                                <Loader2 size={18} className="animate-spin mr-2" />
-                                Creating your app...
-                            </>
-                        ) : (
-                            <>
-                                <Wand2 size={18} className="mr-2" />
-                                Generate App
-                            </>
-                        )}
-                    </Button>
+                        <Sparkles size={16} />
+                        Generate App
+                    </button>
                 </div>
             )}
 
-            {/* Input Area */}
-            <div className="p-4 border-t border-zinc-800">
+            {/* Generating State */}
+            {isGenerating && (
+                <div className="px-6 pb-4">
+                    <div className="w-full h-11 border border-white/20 rounded-xl flex items-center justify-center gap-2">
+                        <Loader2 size={16} className="animate-spin text-white/60" />
+                        <span className="text-white/60 text-sm">Creating your app...</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Input */}
+            <div className="p-4 border-t border-white/10">
                 <form onSubmit={handleSubmit} className="flex gap-2">
-                    <Textarea
+                    <textarea
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}
                         onKeyDown={handleKeyDown}
                         placeholder="Describe what you want to build..."
                         disabled={isLoading || isGenerating}
-                        className="min-h-[60px] max-h-[120px] resize-none bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500 focus-visible:ring-indigo-500"
-                        rows={2}
+                        rows={1}
+                        className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 resize-none text-sm"
                     />
-                    <Button
+                    <button
                         type="submit"
-                        size="icon"
                         disabled={isLoading || isGenerating || !inputValue.trim()}
-                        className="h-[60px] w-[60px] bg-indigo-600 hover:bg-indigo-700 shrink-0"
+                        className="w-11 h-11 bg-white text-black rounded-xl hover:bg-white/90 transition-colors disabled:opacity-30 disabled:hover:bg-white flex items-center justify-center"
                     >
-                        {status === 'streaming' ? (
-                            <Loader2 size={20} className="animate-spin" />
-                        ) : (
-                            <Send size={20} />
-                        )}
-                    </Button>
+                        <Send size={16} />
+                    </button>
                 </form>
-                <p className="text-[10px] text-zinc-600 text-center mt-2">
-                    Press Enter to send • Shift+Enter for new line
-                </p>
             </div>
         </div>
     );

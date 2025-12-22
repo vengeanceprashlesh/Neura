@@ -17,6 +17,7 @@ interface GenerateResponse {
     spec?: any;
     projectId?: string;
     error?: string;
+    isDemo?: boolean;
 }
 
 export async function POST(request: NextRequest) {
@@ -143,7 +144,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json<GenerateResponse>({
             files,
             spec,
-            projectId
+            projectId,
+            isDemo: codeResult?.isDemo
         });
 
     } catch (error) {

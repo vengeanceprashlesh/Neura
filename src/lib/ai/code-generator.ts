@@ -1,10 +1,12 @@
 import { getAIClient } from './provider';
 import { REACT_APP_SYSTEM_PROMPT, UPDATE_APP_SYSTEM_PROMPT, enhancePrompt } from './prompts';
+import { getDemoApp, shouldUseDemoMode } from './demo-apps';
 
 interface CodeGenerationResult {
   files: Record<string, string>;
   success: boolean;
   error?: string;
+  isDemo?: boolean;
 }
 
 /**
@@ -69,15 +71,43 @@ function extractFilesFromMarkdown(content: string): Record<string, string> {
  * 
  * This is the main entry point for new app generation.
  * It enhances vague prompts and generates beautiful, functional code.
+ * Falls back to demo mode if no API key is configured.
  */
 export async function generateCodeFromSpec(
   spec: { name: string; description: string },
   isUpdate: boolean = false,
   existingFiles?: Record<string, string>
-): Promise<CodeGenerationResult | null> {
+): Promise<CodeGenerationResult> {
+
+  // Check if we should use demo mode
+  if (shouldUseDemoMode()) {
+    console.log('🎭 No API key configured, using demo mode...');
+    const demoApp = getDemoApp(spec.description);
+
+    if (demoApp) {
+      return {
+        files: demoApp.files,
+        success: true,
+        isDemo: true
+      };
+    }
+  }
+
   try {
     const client = getAIClient();
     if (!client) {
+      // Fallback to demo mode
+      console.log('🎭 AI client not available, using demo mode...');
+      const demoApp = getDemoApp(spec.description);
+
+      if (demoApp) {
+        return {
+          files: demoApp.files,
+          success: true,
+          isDemo: true
+        };
+      }
+
       return {
         files: {},
         success: false,
@@ -122,6 +152,18 @@ export async function generateCodeFromSpec(
     const content = response.choices[0]?.message?.content;
     if (!content) {
       console.error('❌ No response from AI');
+
+      // Fallback to demo
+      const demoApp = getDemoApp(spec.description);
+      if (demoApp) {
+        console.log('🎭 Falling back to demo mode...');
+        return {
+          files: demoApp.files,
+          success: true,
+          isDemo: true
+        };
+      }
+
       return {
         files: {},
         success: false,
@@ -130,7 +172,6 @@ export async function generateCodeFromSpec(
     }
 
     console.log('📝 AI response received, extracting files...');
-    console.log('Response preview:', content.substring(0, 500));
 
     // Extract files from markdown code blocks
     const files = extractFilesFromMarkdown(content);
@@ -138,7 +179,7 @@ export async function generateCodeFromSpec(
     if (Object.keys(files).length === 0) {
       console.error('❌ No files extracted from response');
 
-      // Last resort: try to parse as JSON (old format)
+      // Try JSON fallback
       try {
         const jsonMatch = content.match(/\{[\s\S]*"files"[\s\S]*\}/);
         if (jsonMatch) {
@@ -152,13 +193,24 @@ export async function generateCodeFromSpec(
           }
         }
       } catch (e) {
-        // JSON parse failed too
+        // JSON parse failed
+      }
+
+      // Final fallback to demo
+      const demoApp = getDemoApp(spec.description);
+      if (demoApp) {
+        console.log('🎭 Falling back to demo mode after parse failure...');
+        return {
+          files: demoApp.files,
+          success: true,
+          isDemo: true
+        };
       }
 
       return {
         files: {},
         success: false,
-        error: 'Failed to extract code from AI response. Please try again with a different prompt.'
+        error: 'Failed to extract code from AI response. Please try again.'
       };
     }
 
@@ -169,32 +221,42 @@ export async function generateCodeFromSpec(
       files['app/page.tsx'] || files['/app/page.tsx'];
 
     if (!hasEntryPoint && !isUpdate) {
-      // Create a default App.tsx that imports other components
+      // Create a default App.tsx
       const componentFiles = Object.keys(files).filter(f => f.endsWith('.tsx') && f !== 'App.tsx');
 
       if (componentFiles.length > 0) {
-        // Use the first component as the main content
-        const mainComponent = componentFiles[0];
-        const componentName = mainComponent.replace(/\.tsx$/, '').replace(/^.*\//, '');
+        const mainFile = componentFiles[0];
+        const componentName = mainFile.replace(/\.tsx$/, '').replace(/^.*\//, '');
 
-        files['App.tsx'] = `import { ${componentName} } from './${mainComponent.replace('.tsx', '')}';
+        files['App.tsx'] = `import { ${componentName} } from './${mainFile.replace('.tsx', '')}';
 
 export default function App() {
   return <${componentName} />;
 }`;
       } else {
-        // No components found, create a placeholder
         files['App.tsx'] = `export default function App() {
   return (
     <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
       <div className="text-center text-white">
         <h1 className="text-4xl font-bold mb-4">App Generated</h1>
-        <p className="text-zinc-400">Your app is ready. Check the code editor.</p>
+        <p className="text-zinc-400">Your app is ready!</p>
       </div>
     </div>
   );
 }`;
       }
+    }
+
+    // Add default styles if missing
+    if (!files['styles.css'] && !files['/styles.css']) {
+      files['styles.css'] = `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+}`;
     }
 
     return {
@@ -204,6 +266,18 @@ export default function App() {
 
   } catch (error) {
     console.error('💥 Code generation error:', error);
+
+    // Fallback to demo on any error
+    const demoApp = getDemoApp(spec.description);
+    if (demoApp) {
+      console.log('🎭 Falling back to demo mode after error...');
+      return {
+        files: demoApp.files,
+        success: true,
+        isDemo: true
+      };
+    }
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
 
     return {
@@ -211,72 +285,5 @@ export default function App() {
       success: false,
       error: `Generation failed: ${errorMessage}`
     };
-  }
-}
-
-/**
- * Generate code with streaming (for real-time feedback)
- * 
- * This streams the response back in chunks so the user
- * can see progress as code is generated.
- */
-export async function* generateCodeStream(
-  prompt: string,
-  isUpdate: boolean = false,
-  existingFiles?: Record<string, string>
-): AsyncGenerator<{ type: 'progress' | 'file' | 'done' | 'error'; data: any }> {
-  try {
-    const client = getAIClient();
-    if (!client) {
-      yield { type: 'error', data: 'AI client not configured' };
-      return;
-    }
-
-    const enhancedPrompt = isUpdate ? prompt : enhancePrompt(prompt);
-
-    yield { type: 'progress', data: 'Starting generation...' };
-
-    let userMessage = enhancedPrompt;
-    if (isUpdate && existingFiles && Object.keys(existingFiles).length > 0) {
-      userMessage = `## Current Files\n\n`;
-      for (const [path, content] of Object.entries(existingFiles)) {
-        userMessage += `### ${path}\n\`\`\`tsx\n${content}\n\`\`\`\n\n`;
-      }
-      userMessage += `## Requested Change\n${prompt}`;
-    }
-
-    yield { type: 'progress', data: 'Generating code...' };
-
-    const stream = await client.chat.completions.create({
-      model: client.defaultModel || 'gpt-4o',
-      messages: [
-        { role: 'system', content: isUpdate ? UPDATE_APP_SYSTEM_PROMPT : REACT_APP_SYSTEM_PROMPT },
-        { role: 'user', content: userMessage }
-      ],
-      temperature: 0.7,
-      max_tokens: 8000,
-      stream: true
-    });
-
-    let fullContent = '';
-
-    for await (const chunk of stream) {
-      const delta = chunk.choices[0]?.delta?.content || '';
-      fullContent += delta;
-
-      // Check if we've completed a file
-      const currentFiles = extractFilesFromMarkdown(fullContent);
-      for (const [path, content] of Object.entries(currentFiles)) {
-        yield { type: 'file', data: { path, content } };
-      }
-    }
-
-    // Final extraction
-    const files = extractFilesFromMarkdown(fullContent);
-    yield { type: 'done', data: files };
-
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    yield { type: 'error', data: errorMessage };
   }
 }

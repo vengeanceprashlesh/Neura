@@ -1,176 +1,140 @@
 # Neura - AI App Builder
 
-A full-stack AI-powered platform that transforms natural language prompts into complete Next.js applications. Built with Next.js 15, Sandpack, Supabase, and multiple LLM providers.
+> Build web applications just by describing them. Like Bolt.new and Lovable.
 
-## 🚀 Features
+![Neura](https://img.shields.io/badge/Next.js-16-black?style=flat-square)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
-- **AI-Powered Code Generation** - Describe your app idea, get a complete Next.js project
-- **Live Code Editor** - Edit React/TypeScript code with syntax highlighting and error detection
-- **Sandboxed Preview** - Execute user-generated code safely in an isolated iframe
-- **Template RAG System** - Retrieves relevant code templates using vector search
-- **Multi-Provider LLM Support** - Groq, OpenRouter, or OpenAI
-- **Project Management** - Save, load, and export projects
-- **ZIP Export** - Download complete project as a deployable ZIP file
+## ✨ Features
 
-## 🛠️ Tech Stack
+- **Natural Language to App**: Describe what you want, get a working app
+- **Live Preview**: See your app render in real-time with Sandpack
+- **Beautiful UI**: Modern dark theme with smooth animations
+- **Smart Suggestions**: Pre-built templates for common app types
+- **Demo Mode**: Works without API key for demonstrations
 
-- **Framework**: Next.js 15 (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **UI Components**: shadcn/ui
-- **Code Sandbox**: @codesandbox/sandpack-react
-- **State Management**: Zustand
-- **Database**: Supabase (Postgres + Vector)
-- **LLM Providers**: Groq, OpenRouter, OpenAI
+## 🚀 Quick Start
+
+### 1. Install Dependencies
+
+```bash
+npm install
+```
+
+### 2. Configure API Key (Optional)
+
+Create a `.env` file:
+
+```env
+# Use ONE of these (priority: Groq > OpenRouter > OpenAI)
+
+# Option 1: Groq (Fastest, Free tier available)
+GROQ_API_KEY=your_groq_api_key
+
+# Option 2: OpenRouter (Most models)
+OPENROUTER_API_KEY=your_openrouter_api_key
+
+# Option 3: OpenAI (Direct)
+OPENAI_API_KEY=your_openai_api_key
+```
+
+> **Note**: The app works in Demo Mode without an API key, showing pre-built examples.
+
+### 3. Run the App
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000)
+
+## 🎯 How It Works
+
+```
+User Input → Prompt Enhancement → AI Generation → Code Extraction → Live Preview
+     ↓              ↓                  ↓               ↓              ↓
+"todo app"   Adds styling,      Calls LLM API    Parses markdown    Sandpack
+             animations,        (Groq/OpenAI)    code blocks        renders it
+             features...
+```
+
+### Architecture
+
+1. **Frontend** (Next.js 16 + React 19)
+   - Chat interface for natural language input
+   - Sandpack preview for live rendering
+   - Zustand for state management
+
+2. **Backend** (API Routes)
+   - `/api/chat` - Conversational AI
+   - `/api/generate` - App generation
+
+3. **AI Layer**
+   - Smart prompt enhancement
+   - Markdown code block extraction
+   - Demo mode fallback
 
 ## 📁 Project Structure
 
 ```
 src/
 ├── app/
-│   ├── api/
-│   │   ├── app-spec/        # Generate app specification from prompt
-│   │   ├── generate-app/    # Generate complete app with code
-│   │   ├── chat/            # Chat assistant endpoint
-│   │   └── projects/        # Project CRUD + ZIP export
-│   ├── (dashboard)/         # Main dashboard layout
-│   └── globals.css          # Global styles
+│   ├── (dashboard)/          # Main app UI
+│   │   ├── _components/
+│   │   │   └── chat-panel.tsx
+│   │   └── page.tsx
+│   └── api/
+│       ├── chat/             # Chat endpoint
+│       └── generate/         # Code generation
 ├── components/
-│   ├── sandpack/            # Sandpack editor components
-│   └── ui/                  # shadcn/ui components
+│   ├── sandpack/             # Live preview
+│   └── ui/                   # UI components
 └── lib/
     ├── ai/
-    │   └── provider.ts      # Multi-provider LLM abstraction
-    ├── code/
-    │   └── validate.ts      # Code validation & safety checks
-    ├── templates/
-    │   └── rag-service.ts   # Template retrieval (RAG)
-    ├── supabase/
-    │   └── client.ts        # Supabase clients
-    ├── types/
-    │   └── app.ts           # Type definitions & Zod schemas
-    └── api.ts               # Frontend API functions
+    │   ├── prompts.ts        # System prompts
+    │   ├── code-generator.ts # Core generation
+    │   └── demo-apps.ts      # Pre-built demos
+    └── store/                # State management
 ```
 
-## 🏃 Getting Started
+## 🔧 API Keys
 
-### 1. Install dependencies
+| Provider | Get Key From | Cost | Best For |
+|----------|-------------|------|----------|
+| [Groq](https://console.groq.com) | console.groq.com | Free tier | Fast inference |
+| [OpenRouter](https://openrouter.ai) | openrouter.ai | Pay-per-use | Best models |
+| [OpenAI](https://platform.openai.com) | platform.openai.com | $20+/mo | Direct access |
 
-```bash
-npm install
-```
+## 🎨 Supported App Types
 
-### 2. Configure environment
+Click any suggestion or type your own:
 
-Copy `.env.example` to `.env` and configure:
+- ✅ Todo App
+- ✅ Portfolio Website
+- ✅ Admin Dashboard
+- ✅ Weather App
+- ✅ Calculator
+- ✅ Chat Interface
+- ✅ E-commerce Store
+- ✅ Blog Page
+- ✅ Any custom idea!
 
-```bash
-# LLM Provider (choose one - Groq is recommended for speed)
-GROQ_API_KEY=your_groq_api_key
-LLM_MODEL=llama-3.3-70b-versatile
+## 🛠️ Tech Stack
 
-# Alternative: OpenRouter (access to multiple models)
-# OPENROUTER_API_KEY=your_openrouter_api_key
-# LLM_MODEL=anthropic/claude-3.5-sonnet
+- **Framework**: Next.js 16 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Animations**: Framer Motion
+- **Icons**: Lucide React
+- **Preview**: Sandpack
+- **State**: Zustand
+- **AI**: OpenAI API compatible (Groq, OpenRouter, OpenAI)
 
-# Alternative: OpenAI Direct
-# OPENAI_API_KEY=your_openai_api_key
-# LLM_MODEL=gpt-4o
-
-# Optional: Supabase (for project storage & RAG)
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-```
-
-### 3. Run development server
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) to view the app.
-
-## 🔌 LLM Provider Priority
-
-The system checks for API keys in this order:
-
-1. **Groq** (`GROQ_API_KEY`) - Fastest inference, recommended
-2. **OpenRouter** (`OPENROUTER_API_KEY`) - Access to 100+ models
-3. **OpenAI** (`OPENAI_API_KEY`) - Direct OpenAI access
-
-### Supported Groq Models
-- `llama-3.3-70b-versatile` (default)
-- `llama-3.1-8b-instant` (faster)
-- `mixtral-8x7b-32768`
-
-### Supported OpenRouter Models
-- `anthropic/claude-3.5-sonnet`
-- `openai/gpt-4o`
-- `google/gemini-pro-1.5`
-- [See all models](https://openrouter.ai/models)
-
-## 📡 API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/app-spec` | POST | Generate AppSpec from prompt |
-| `/api/generate-app` | POST | Generate complete project |
-| `/api/chat` | POST | Chat with AI assistant |
-| `/api/projects` | GET, POST | List/create projects |
-| `/api/projects/[id]` | GET, PATCH, DELETE | Manage single project |
-| `/api/projects/[id]/zip` | GET | Download project as ZIP |
-
-## 📦 Pre-installed Sandbox Packages
-
-The Sandpack editor comes with these packages pre-installed:
-- `lucide-react` - Icon library
-- `framer-motion` - Animation library
-- `three` - 3D graphics library
-- `@supabase/supabase-js` - Database client
-
-## 🗄️ Database Schema (Supabase)
-
-If using Supabase for project storage:
-
-```sql
--- Projects table
-CREATE TABLE projects (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  owner_id TEXT NOT NULL,
-  name TEXT NOT NULL,
-  spec JSONB NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Project files table
-CREATE TABLE project_files (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
-  path TEXT NOT NULL,
-  content TEXT NOT NULL
-);
-
--- Optional: Template tables for RAG
-CREATE TABLE frontend_templates (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  description TEXT NOT NULL,
-  code TEXT NOT NULL,
-  kind TEXT NOT NULL,
-  embedding VECTOR(1536)
-);
-
-CREATE TABLE backend_templates (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  description TEXT NOT NULL,
-  code TEXT NOT NULL,
-  kind TEXT NOT NULL,
-  embedding VECTOR(1536)
-);
-```
-
-## 📄 License
+## 📝 License
 
 MIT
+
+---
+
+Built with ❤️ by Neura
