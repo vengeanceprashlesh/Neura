@@ -20,14 +20,14 @@ export default function DashboardPage() {
     if (!mounted) return null;
 
     return (
-        <div className="flex h-screen w-screen overflow-hidden bg-black text-white">
-            {/* Left Sidebar: Conversation */}
-            <aside className="w-[400px] flex-shrink-0 flex flex-col border-r border-[#1F1F1F]">
+        <div className="flex h-screen w-screen overflow-hidden bg-gradient-to-br from-[#0a0a14] via-[#0f0f1e] to-[#13111f] text-white">
+            {/* Left Sidebar: Chat Panel - ENLARGED to 500px */}
+            <aside className="w-[500px] flex-shrink-0 flex flex-col border-r border-purple-500/20 shadow-2xl shadow-purple-500/10">
                 <ChatPanel />
             </aside>
 
-            {/* Right Area: Canvas */}
-            <main className="flex-1 flex flex-col min-w-0 bg-[#0A0A0A] relative">
+            {/* Right Area: Preview Canvas */}
+            <main className="flex-1 flex flex-col min-w-0 relative">
                 <PreviewPanel files={files} />
             </main>
         </div>

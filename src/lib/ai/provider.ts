@@ -121,6 +121,59 @@ export function getProviderInfo(): { provider: LLMProvider; model: string } {
 }
 
 /**
+ * Get detailed configuration status for UI
+ * This helps the frontend show appropriate messaging and settings
+ */
+export function getConfigurationStatus(): {
+    hasAnyKey: boolean;
+    providers: {
+        groq: boolean;
+        openrouter: boolean;
+        openai: boolean;
+    };
+    activeProvider: LLMProvider | null;
+    activeModel: string | null;
+    isDemoMode: boolean;
+} {
+    const providers = {
+        groq: !!process.env.GROQ_API_KEY,
+        openrouter: !!process.env.OPENROUTER_API_KEY,
+        openai: !!process.env.OPENAI_API_KEY,
+    };
+
+    const hasAnyKey = providers.groq || providers.openrouter || providers.openai;
+
+    if (!hasAnyKey) {
+        return {
+            hasAnyKey: false,
+            providers,
+            activeProvider: null,
+            activeModel: null,
+            isDemoMode: true,
+        };
+    }
+
+    try {
+        const { provider, model } = getProviderInfo();
+        return {
+            hasAnyKey: true,
+            providers,
+            activeProvider: provider,
+            activeModel: model,
+            isDemoMode: false,
+        };
+    } catch {
+        return {
+            hasAnyKey: false,
+            providers,
+            activeProvider: null,
+            activeModel: null,
+            isDemoMode: true,
+        };
+    }
+}
+
+/**
  * Generate an AppSpec from a natural language prompt
  */
 export async function generateAppSpec(prompt: string): Promise<AppSpec> {
