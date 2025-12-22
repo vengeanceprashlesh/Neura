@@ -5,7 +5,7 @@ import { ProjectList } from '@/components/project/ProjectList';
 import { FileTree } from '@/components/editor/FileTree';
 import { CodeEditor } from '@/components/editor/CodeEditor';
 import { EditorTabs } from '@/components/editor/EditorTabs';
-import { StackBlitzPreview } from '@/components/stackblitz/StackBlitzPreview';
+import { SandpackPreview } from '@/components/sandpack/SandpackPreview';
 import { useAppStore } from '@/lib/store/use-app-store';
 import { GripVertical } from 'lucide-react';
 
@@ -60,7 +60,7 @@ export function ResizableLayout() {
 
             {/* Preview Panel */}
             <Panel defaultSize={35} minSize={25}>
-                <StackBlitzPreview files={files} />
+                <SandpackPreview files={files} />
             </Panel>
         </PanelGroup>
     );

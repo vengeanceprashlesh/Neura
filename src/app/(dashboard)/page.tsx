@@ -6,7 +6,7 @@ import { ChatPanel } from './_components/chat-panel';
 import { Header } from '@/components/layout/Header';
 import { CommandPalette } from '@/components/ui/CommandPalette';
 import { KeyboardShortcuts } from '@/components/ui/KeyboardShortcuts';
-import { StackBlitzPreview } from '@/components/stackblitz/StackBlitzPreview';
+import { SandpackPreview } from '@/components/sandpack/SandpackPreview';
 import { ClientOnly } from '@/components/client-only';
 import { GripVertical } from 'lucide-react';
 import { useAppStore } from '@/lib/store/use-app-store';
@@ -54,7 +54,7 @@ export default function DashboardPage() {
 
                         {/* Right Panel - Preview */}
                         <Panel defaultSize={65} minSize={50}>
-                            <StackBlitzPreview files={files} />
+                            <SandpackPreview files={files} />
                         </Panel>
                     </PanelGroup>
                 </div>

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAppStore } from '@/lib/store/use-app-store';
-import { generateApp } from '@/lib/api';
+import { PROMPT_SUGGESTIONS } from '@/lib/ai/prompts';
 import {
     Send,
     Sparkles,
@@ -15,8 +15,11 @@ import {
     Bot,
     User,
     Wand2,
-    AlertCircle
+    AlertCircle,
+    Lightbulb,
+    RefreshCw
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export function ChatPanel() {
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -28,7 +31,8 @@ export function ChatPanel() {
         setIsGenerating,
         generationError,
         setGenerationError,
-        setCurrentProjectId
+        setCurrentProjectId,
+        currentCode
     } = useAppStore();
 
     const { messages, sendMessage, status } = useChat({
@@ -83,7 +87,14 @@ export function ChatPanel() {
         return userMessages.map(m => getMessageText(m)).join('\n\n');
     };
 
-    // Handle app generation using new unified endpoint
+    // Handle suggestion click
+    const handleSuggestionClick = (prompt: string) => {
+        setInputValue(prompt);
+        // Auto-send the message
+        sendMessage({ text: prompt });
+    };
+
+    // Handle app generation
     const handleGenerateApp = async () => {
         const description = getAppDescription();
         if (!description.trim()) {
@@ -96,21 +107,18 @@ export function ChatPanel() {
 
         try {
             // Get current files from store
-            const currentFiles = useAppStore.getState().currentCode;
-
-            // Convert Sandpack file format to simple Record<string, string>
             const filesMap: Record<string, string> = {};
-            for (const [path, file] of Object.entries(currentFiles)) {
+            for (const [path, file] of Object.entries(currentCode)) {
                 filesMap[path] = typeof file === 'string' ? file : file.code;
             }
 
-            // Call unified generate endpoint
+            // Call generate endpoint with existing files as context
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     prompt: description,
-                    existingFiles: Object.keys(filesMap).length > 2 ? filesMap : undefined, // Only send if not default files
+                    existingFiles: Object.keys(filesMap).length > 0 ? filesMap : undefined,
                 }),
             });
 
@@ -126,7 +134,7 @@ export function ChatPanel() {
             }
 
             if (!data.files || Object.keys(data.files).length === 0) {
-                throw new Error('No files generated');
+                throw new Error('No files generated. Please try a different description.');
             }
 
             // Load generated files into store
@@ -134,7 +142,7 @@ export function ChatPanel() {
 
             // Add success message
             sendMessage({
-                text: `✅ App generated successfully! Created ${Object.keys(data.files).length} files. Check the preview on the right!`,
+                text: `✨ App generated! Created ${Object.keys(data.files).length} files. Check the preview!`,
             });
 
         } catch (error) {
@@ -152,6 +160,7 @@ export function ChatPanel() {
 
     // Show generate button if there are user messages
     const showGenerateButton = messages.some(m => m.role === 'user');
+    const showSuggestions = messages.length === 0;
 
     return (
         <div className="h-full flex flex-col bg-zinc-950">
@@ -170,57 +179,104 @@ export function ChatPanel() {
 
             {/* Messages Area */}
             <ScrollArea className="flex-1 p-4">
-                {messages.length === 0 ? (
+                {showSuggestions ? (
                     <div className="h-full flex flex-col items-center justify-center text-center p-6">
-                        <div className="p-4 bg-zinc-900 rounded-2xl border border-zinc-800 mb-4">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="p-4 bg-zinc-900 rounded-2xl border border-zinc-800 mb-4"
+                        >
                             <Bot size={32} className="text-indigo-400" />
-                        </div>
-                        <h2 className="text-lg font-medium text-white mb-2">
-                            Welcome to Neura
-                        </h2>
-                        <p className="text-sm text-zinc-500 max-w-[240px]">
-                            Describe your app idea and I'll help you build it. When you're ready, click "Generate App" to create your code.
-                        </p>
+                        </motion.div>
+                        <motion.h2
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.1 }}
+                            className="text-lg font-medium text-white mb-2"
+                        >
+                            What do you want to build?
+                        </motion.h2>
+                        <motion.p
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2 }}
+                            className="text-sm text-zinc-500 max-w-[280px] mb-6"
+                        >
+                            Describe your app idea or try one of these suggestions:
+                        </motion.p>
+
+                        {/* Suggestions Grid */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3 }}
+                            className="grid grid-cols-2 gap-2 w-full max-w-[320px]"
+                        >
+                            {PROMPT_SUGGESTIONS.map((suggestion, index) => (
+                                <motion.button
+                                    key={suggestion.title}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.4 + index * 0.05 }}
+                                    onClick={() => handleSuggestionClick(suggestion.prompt)}
+                                    className="p-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-indigo-500/50 rounded-xl text-left transition-all duration-200 group"
+                                >
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <Lightbulb size={14} className="text-indigo-400 group-hover:text-indigo-300" />
+                                        <span className="text-sm font-medium text-white">{suggestion.title}</span>
+                                    </div>
+                                    <p className="text-xs text-zinc-500">{suggestion.description}</p>
+                                </motion.button>
+                            ))}
+                        </motion.div>
                     </div>
                 ) : (
                     <div className="space-y-4">
-                        {messages.map((message) => (
-                            <div
-                                key={message.id}
-                                className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'
-                                    }`}
-                            >
-                                {message.role === 'assistant' && (
-                                    <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center shrink-0">
-                                        <Bot size={16} className="text-white" />
-                                    </div>
-                                )}
-                                <div
-                                    className={`max-w-[80%] p-3 rounded-2xl text-sm ${message.role === 'user'
-                                        ? 'bg-indigo-600 text-white rounded-br-md'
-                                        : 'bg-zinc-800 text-zinc-200 rounded-bl-md'
+                        <AnimatePresence>
+                            {messages.map((message) => (
+                                <motion.div
+                                    key={message.id}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'
                                         }`}
                                 >
-                                    <p className="whitespace-pre-wrap">{getMessageText(message)}</p>
-                                </div>
-                                {message.role === 'user' && (
-                                    <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center shrink-0">
-                                        <User size={16} className="text-white" />
+                                    {message.role === 'assistant' && (
+                                        <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center shrink-0">
+                                            <Bot size={16} className="text-white" />
+                                        </div>
+                                    )}
+                                    <div
+                                        className={`max-w-[80%] p-3 rounded-2xl text-sm ${message.role === 'user'
+                                            ? 'bg-indigo-600 text-white rounded-br-md'
+                                            : 'bg-zinc-800 text-zinc-200 rounded-bl-md'
+                                            }`}
+                                    >
+                                        <p className="whitespace-pre-wrap">{getMessageText(message)}</p>
                                     </div>
-                                )}
-                            </div>
-                        ))}
+                                    {message.role === 'user' && (
+                                        <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center shrink-0">
+                                            <User size={16} className="text-white" />
+                                        </div>
+                                    )}
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
 
                         {/* Loading indicator */}
                         {status === 'streaming' && (
-                            <div className="flex gap-3 justify-start">
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="flex gap-3 justify-start"
+                            >
                                 <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center shrink-0">
                                     <Bot size={16} className="text-white" />
                                 </div>
                                 <div className="bg-zinc-800 text-zinc-200 p-3 rounded-2xl rounded-bl-md">
                                     <Loader2 size={16} className="animate-spin" />
                                 </div>
-                            </div>
+                            </motion.div>
                         )}
 
                         {/* Scroll anchor */}
@@ -232,25 +288,41 @@ export function ChatPanel() {
             {/* Generate Button */}
             {showGenerateButton && (
                 <div className="px-4 pb-2">
-                    {generationError && (
-                        <div className="flex items-center gap-2 text-red-400 text-sm mb-2 p-2 bg-red-950/50 rounded-lg border border-red-900">
-                            <AlertCircle size={14} />
-                            <span>{generationError}</span>
-                        </div>
-                    )}
+                    {/* Error Display */}
+                    <AnimatePresence>
+                        {generationError && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="flex items-center gap-2 text-red-400 text-sm mb-2 p-3 bg-red-950/50 rounded-lg border border-red-900"
+                            >
+                                <AlertCircle size={14} />
+                                <span className="flex-1">{generationError}</span>
+                                <button
+                                    onClick={() => setGenerationError(null)}
+                                    className="text-red-300 hover:text-red-200"
+                                >
+                                    <RefreshCw size={14} />
+                                </button>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* Generate Button */}
                     <Button
                         onClick={handleGenerateApp}
                         disabled={isGenerating || isLoading}
-                        className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-medium"
+                        className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-medium h-12 text-base"
                     >
                         {isGenerating ? (
                             <>
-                                <Loader2 size={16} className="animate-spin mr-2" />
-                                Generating App...
+                                <Loader2 size={18} className="animate-spin mr-2" />
+                                Creating your app...
                             </>
                         ) : (
                             <>
-                                <Wand2 size={16} className="mr-2" />
+                                <Wand2 size={18} className="mr-2" />
                                 Generate App
                             </>
                         )}
@@ -284,7 +356,7 @@ export function ChatPanel() {
                     </Button>
                 </form>
                 <p className="text-[10px] text-zinc-600 text-center mt-2">
-                    Press Enter to send, Shift+Enter for new line
+                    Press Enter to send • Shift+Enter for new line
                 </p>
             </div>
         </div>

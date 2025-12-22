@@ -1,6 +1,6 @@
 'use client';
 
-import { StackBlitzPreview } from '@/components/stackblitz/StackBlitzPreview';
+import { SandpackPreview } from '@/components/sandpack/SandpackPreview';
 import { useAppStore } from '@/lib/store/use-app-store';
 
 export function SandboxPanel() {
@@ -15,7 +15,7 @@ export function SandboxPanel() {
     return (
         <div className="h-full flex flex-col bg-zinc-950">
             <div className="flex-1 overflow-hidden">
-                <StackBlitzPreview files={files} />
+                <SandpackPreview files={files} />
             </div>
         </div>
     );

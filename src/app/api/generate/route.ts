@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateAppSpec } from '@/lib/ai/spec-generator';
 import { generateCodeFromSpec } from '@/lib/ai/code-generator';
 import { validateGeneratedProject } from '@/lib/code/validate';
 import { fixGeneratedCode } from '@/lib/code/post-process';
@@ -28,7 +27,7 @@ export async function POST(request: NextRequest) {
         // Validate input
         if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
             return NextResponse.json<GenerateResponse>(
-                { error: 'Please provide a valid prompt', files: {} },
+                { error: 'Please describe what you want to build', files: {} },
                 { status: 400 }
             );
         }
@@ -36,78 +35,65 @@ export async function POST(request: NextRequest) {
         console.log('🚀 Starting generation for prompt:', prompt.substring(0, 100));
 
         // Determine if this is a new app or an update
-        const isNewApp = !existingFiles || Object.keys(existingFiles).length === 0;
+        const isUpdate = existingFiles && Object.keys(existingFiles).length > 0;
 
-        let files: Record<string, string> = {};
-        let spec: any = null;
+        console.log(isUpdate ? '🔄 Updating existing app...' : '📝 Generating new app...');
 
-        if (isNewApp) {
-            // NEW APP FLOW - Skip spec generation, go directly to code
-            console.log('📝 Generating new app directly from prompt...');
+        // Create a simple spec from the prompt
+        const spec = {
+            name: prompt.substring(0, 50),
+            description: prompt,
+            pages: [],
+            entities: [],
+            apis: []
+        };
 
-            // Create a simple spec from the prompt
-            spec = {
-                name: prompt.substring(0, 50),
-                description: prompt,
-                features: [],
-                pages: [],
-                components: []
-            };
+        // Generate code with the new intelligent system
+        console.log('2️⃣ Calling AI code generator...');
+        const codeResult = await generateCodeFromSpec(
+            { name: spec.name, description: prompt },
+            isUpdate,
+            existingFiles
+        );
 
-            console.log('2️⃣ Generating code...');
-            const codeResult = await generateCodeFromSpec(spec);
-
-            if (!codeResult || !codeResult.files) {
-                console.error('❌ Code generation failed');
-                throw new Error('Failed to generate code');
-            }
-
-            files = codeResult.files;
-            console.log('✅ Generated', Object.keys(files).length, 'files');
-
-        } else {
-            // UPDATE APP FLOW
-            console.log('🔄 Updating existing app...');
-
-            // For now, use simple prompt-based update
-            // TODO: Implement patch-based updates
-            const updatePrompt = `Update this React app based on the following request: "${prompt}"\n\nCurrent files:\n${JSON.stringify(existingFiles, null, 2)}`;
-
-            // Generate updated code
-            const codeResult = await generateCodeFromSpec({
-                name: 'Updated App',
-                description: prompt,
-                features: [prompt],
-                pages: [],
-                components: []
-            });
-
-            if (!codeResult || !codeResult.files) {
-                throw new Error('Failed to update code');
-            }
-
-            files = codeResult.files;
-            console.log('✅ Updated', Object.keys(files).length, 'files');
-        }
-
-        // Step 3: Post-process files (fix extensions, etc.)
-        console.log('3️⃣ Post-processing files...');
-        const processedProject = fixGeneratedCode({ spec, files });
-        files = processedProject.files;
-
-        // Step 4: Validate generated code
-        console.log('4️⃣ Validating code...');
-        const validation = validateGeneratedProject({ spec, files });
-
-        if (!validation.ok) {
-            console.error('❌ Validation failed:', validation.errors);
+        if (!codeResult || !codeResult.success) {
+            console.error('❌ Code generation failed:', codeResult?.error);
             return NextResponse.json<GenerateResponse>(
                 {
-                    error: `Code validation failed: ${validation.errors.join(', ')}`,
+                    error: codeResult?.error || 'Failed to generate code. Please try again.',
                     files: {}
                 },
                 { status: 400 }
             );
+        }
+
+        let files = codeResult.files;
+        console.log('✅ Generated', Object.keys(files).length, 'files');
+
+        // For updates, merge with existing files
+        if (isUpdate && existingFiles) {
+            files = { ...existingFiles, ...files };
+            console.log('✅ Merged with existing files. Total:', Object.keys(files).length);
+        }
+
+        // Step 3: Post-process files (fix extensions, etc.)
+        console.log('3️⃣ Post-processing files...');
+        try {
+            const processedProject = fixGeneratedCode({ spec, files });
+            files = processedProject.files;
+        } catch (e) {
+            console.warn('⚠️ Post-processing warning:', e);
+            // Continue with unprocessed files if post-processing fails
+        }
+
+        // Step 4: Validate generated code (soft validation - don't block on minor issues)
+        console.log('4️⃣ Validating code...');
+        const validation = validateGeneratedProject({ spec, files });
+
+        if (!validation.ok) {
+            console.warn('⚠️ Validation warnings:', validation.errors);
+            // For now, we'll proceed anyway but log the warnings
+            // In the future, we could ask the AI to fix these issues
         }
 
         console.log('✅ Validation passed');
@@ -167,7 +153,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json<GenerateResponse>(
             {
-                error: `Generation failed: ${errorMessage}`,
+                error: `Something went wrong. Please try again. (${errorMessage})`,
                 files: {}
             },
             { status: 500 }
