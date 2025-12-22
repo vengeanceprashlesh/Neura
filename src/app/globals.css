@@ -2,79 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Black & White Theme */
 :root {
-  --background: 0 0% 0%;
-  --foreground: 0 0% 100%;
-  --card: 0 0% 5%;
-  --card-foreground: 0 0% 100%;
-  --popover: 0 0% 5%;
-  --popover-foreground: 0 0% 100%;
-  --primary: 0 0% 100%;
-  --primary-foreground: 0 0% 0%;
-  --secondary: 0 0% 10%;
-  --secondary-foreground: 0 0% 100%;
-  --muted: 0 0% 15%;
-  --muted-foreground: 0 0% 60%;
-  --accent: 0 0% 15%;
-  --accent-foreground: 0 0% 100%;
-  --destructive: 0 62% 30%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 0 0% 15%;
-  --input: 0 0% 15%;
-  --ring: 0 0% 100%;
-  --radius: 0.75rem;
-}
-
-* {
-  border-color: hsl(var(--border));
+  --background: #000000;
+  --foreground: #ffffff;
+  --border-color: rgba(255, 255, 255, 0.08);
 }
 
 body {
-  margin: 0;
-  padding: 0;
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: -0.015em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Hide Sandpack Editor */
-.sp-layout {
-  background: black !important;
-  border: none !important;
-}
-
-.sp-editor {
-  display: none !important;
-}
-
-.sp-preview-container {
-  width: 100% !important;
-  height: 100% !important;
-}
-
-.sp-preview {
-  width: 100% !important;
-  height: 100% !important;
-  background: white !important;
-}
-
-.sp-preview iframe {
-  width: 100% !important;
-  height: 100% !important;
-}
-
-.sp-tabs {
-  display: none !important;
-}
-
-.sp-navigator {
-  display: none !important;
-}
-
-/* Scrollbar */
+/* Premium smooth scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -93,23 +36,60 @@ body {
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* Selection */
-::selection {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
+/* Utilities */
+.glass-border {
+  border-bottom: 1px solid var(--border-color);
 }
 
-/* Focus */
-*:focus-visible {
-  outline: 1px solid rgba(255, 255, 255, 0.3);
-  outline-offset: 2px;
+.glass-panel {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+}
+
+/* Sandpack Customization */
+.sp-wrapper {
+  height: 100% !important;
+  background: transparent !important;
+}
+
+.sp-layout {
+  background: transparent !important;
+  border: none !important;
+  height: 100% !important;
+}
+
+.sp-preview-container {
+  width: 100% !important;
+  height: 100% !important;
+  flex: 1 !important;
+  background: white;
+}
+
+.sp-preview {
+  width: 100% !important;
+  height: 100% !important;
+  background: white;
+}
+
+.sp-preview iframe {
+  width: 100% !important;
+  height: 100% !important;
+  border: none !important;
+}
+
+/* Hide redundant Sandpack UI */
+.sp-editor,
+.sp-tabs,
+.sp-navigator,
+.sp-preview-actions {
+  display: none !important;
 }
 
 /* Animations */
-@keyframes fade-in {
+@keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(5px);
   }
 
   to {
@@ -119,5 +99,5 @@ body {
 }
 
 .animate-fade-in {
-  animation: fade-in 0.3s ease-out;
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
